@@ -479,6 +479,25 @@ local function ReadTalents()
 	return #out > 0 and out or nil
 end
 
+-- When ReadTalents finds nothing: record which talent functions this client has, so support can be added.
+local function ProbeTalentAPI()
+	local out = { globals = {}, namespaces = {} }
+	for _, n in ipairs({ "GetNumTalentTabs", "GetTalentTabInfo", "GetNumTalents", "GetTalentInfo", "GetActiveTalentGroup",
+		"GetNumTalentGroups", "UnitCharacterPoints", "GetUnspentTalentPoints", "GetTalentInfoByID", "GetTalentTierInfo" }) do
+		if _G[n] ~= nil then out.globals[#out.globals + 1] = n .. ":" .. type(_G[n]) end
+	end
+	if GetNumTalentTabs then out.numTabs = GetNumTalentTabs() end
+	for k, v in pairs(_G) do
+		if type(k) == "string" and type(v) == "table" and k:match("^C_") and (k:find("Talent") or k:find("Spec") or k:find("Trait")) then
+			local fns = {}
+			for fk, fv in pairs(v) do if type(fv) == "function" then fns[#fns + 1] = fk end end
+			table.sort(fns)
+			out.namespaces[k] = table.concat(fns, ",")
+		end
+	end
+	return out
+end
+
 -- Guild roster, for planning group runs: who's in the guild, level, class, rank, zone, last seen.
 -- Kept in SavedVariables for the player's own agent; never added to the [copy] report.
 local function RequestGuildRoster()
@@ -587,6 +606,7 @@ function WL:Snapshot()
 	s.skills = safe(ReadSkills)
 	s.equipment = safe(ReadEquipment)
 	s.talents = safe(ReadTalents)
+	if not s.talents then s.talentAPI = safe(ProbeTalentAPI) end
 	pcall(self.SaveGuild, self)
 	s.bags = safe(ReadBags)
 	s.completedQuests = safe(ReadCompleted)
