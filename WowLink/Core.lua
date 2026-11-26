@@ -215,6 +215,74 @@ end
 local function ReadBags() return ReadContainers(BagIDs("bags")) end
 
 -- The bank can only be read while it's open, so keep the last copy we saw.
+-- Flight paths: like the bank, the game only shows them while a flight master's map is open.
+local function ContinentName()
+	local CONT = (Enum and Enum.UIMapType and Enum.UIMapType.Continent) or 2
+	local id = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local last
+	for _ = 1, 8 do
+		local mi = id and MapInfo(id)
+		if not mi then break end
+		last = mi.name
+		if mi.mapType == CONT then return mi.name end
+		id = mi.parentMapID
+	end
+	return last or GetZoneText() or "?"
+end
+
+local function ReadTaxi()
+	local nodes = {}
+	if C_TaxiMap and C_TaxiMap.GetAllTaxiNodes and GetTaxiMapID then
+		local ok, list = pcall(C_TaxiMap.GetAllTaxiNodes, GetTaxiMapID())
+		if ok and type(list) == "table" then
+			local S = Enum and Enum.FlightPathState
+			for _, n in ipairs(list) do
+				if n.name then nodes[#nodes + 1] = { name = n.name, known = not (S and n.state == S.Unreachable) } end
+			end
+		end
+	end
+	if #nodes == 0 and NumTaxiNodes and TaxiNodeName then
+		for i = 1, NumTaxiNodes() do
+			local t = TaxiNodeGetType and TaxiNodeGetType(i)
+			nodes[#nodes + 1] = { name = TaxiNodeName(i), known = (t == "CURRENT" or t == "REACHABLE" or t == nil) }
+		end
+	end
+	return nodes
+end
+
+function WL:SaveFlightPaths()
+	if not self.char then return end
+	local ok, nodes = pcall(ReadTaxi)
+	if not ok or #nodes == 0 then return end
+	local cont = ContinentName()
+	self.char.flight = self.char.flight or {}
+	local old = self.char.flight[cont]
+	local had = {}
+	for _, n in ipairs(old and old.known or {}) do had[n] = true end
+	local known, unknown = {}, {}
+	for _, n in ipairs(nodes) do
+		if n.known then
+			known[#known + 1] = n.name
+			if old and not had[n.name] then self:Log("Learned flight path: " .. n.name) end
+		else
+			unknown[#unknown + 1] = n.name
+		end
+	end
+	table.sort(known); table.sort(unknown)
+	self.char.flight[cont] = { t = time(), known = known, unknown = unknown }
+	self:Refresh(true)
+end
+
+function WL:KnowsFlight(name)
+	name = name:lower()
+	for _, cont in pairs(self.char and self.char.flight or {}) do
+		for _, n in ipairs(cont.known or {}) do
+			if n:lower():find(name, 1, true) then return true end
+		end
+	end
+	return false
+end
+
 function WL:SaveBank()
 	if not (self.char and self.bankOpen) then return end
 	local ok, items = pcall(ReadContainers, BagIDs("bank"))
@@ -378,7 +446,7 @@ function WL:Goal()
 	return g
 end
 
--- c = { level, quest, questInLog, item, count, money, zone, skill, rank }; all given must hold.
+-- c = { level, quest, questInLog, item, count, money, zone, skill, rank, flight }; all given must hold.
 function WL:CheckMet(c)
 	if type(c) ~= "table" then return false end
 	if c.level and UnitLevel("player") < c.level then return false end
@@ -387,6 +455,7 @@ function WL:CheckMet(c)
 	if c.item and ItemCount(c.item) < (c.count or 1) then return false end
 	if c.money and GetMoney() < c.money then return false end
 	if c.skill and SkillRank(c.skill) < (c.rank or 1) then return false end
+	if c.flight and not self:KnowsFlight(c.flight) then return false end
 	if c.zone then
 		if type(c.zone) == "number" then
 			local id, hit = (PlayerMap()), false
@@ -551,7 +620,7 @@ local function Reg(e) pcall(ev.RegisterEvent, ev, e) end
 for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "QUEST_LOG_UPDATE", "QUEST_TURNED_IN",
 	"QUEST_ACCEPTED", "PLAYER_LEVEL_UP", "BAG_UPDATE_DELAYED", "PLAYER_MONEY", "ZONE_CHANGED_NEW_AREA",
 	"ZONE_CHANGED", "SKILL_LINES_CHANGED", "PLAYER_DEAD", "CHAT_MSG_LOOT", "BANKFRAME_OPENED",
-	"BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "PLAYERBANKBAGSLOTS_CHANGED" }) do Reg(e) end
+	"BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "PLAYERBANKBAGSLOTS_CHANGED", "TAXIMAP_OPENED" }) do Reg(e) end
 
 ev:SetScript("OnEvent", function(_, event, a1, a2)
 	if event == "ADDON_LOADED" then
@@ -591,6 +660,9 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 	if not WL.char then return end
 	if event == "PLAYER_LOGOUT" then
 		pcall(WL.Snapshot, WL)
+		return
+	elseif event == "TAXIMAP_OPENED" then
+		C_Timer.After(0.2, function() WL:SaveFlightPaths() end)
 		return
 	elseif event == "BANKFRAME_OPENED" then
 		WL.bankOpen = true

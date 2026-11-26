@@ -126,7 +126,7 @@ C_QuestLog = {
 C_Map = {
   GetBestMapForUnit = function() return 1436 end,
   GetPlayerMapPosition = function() return { GetXY = function() return 0.5612, 0.4721 end } end,
-  GetMapInfo = function(id) if id == 1436 then return { name = "Westfall", parentMapID = 1415 } end return { name = "Eastern Kingdoms" } end,
+  GetMapInfo = function(id) if id == 1436 then return { name = "Westfall", parentMapID = 1415, mapType = 3 } end return { name = "Eastern Kingdoms", mapType = 2 } end,
   SetUserWaypoint = function(p) WAYPOINT = p end,
   GetUserWaypoint = function() return WAYPOINT end,
   ClearUserWaypoint = function() WAYPOINT = nil end,
@@ -135,6 +135,10 @@ C_Map = {
 ItemLocation = { CreateFromBagAndSlot = function(_, bag, slot) return { bag = bag, slot = slot } end }
 UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { uiMapID = m, position = { x = x, y = y } } end }
 C_SuperTrack = { SetSuperTrackedUserWaypoint = function() end }
+TAXI = { { "Booty Bay, Stranglethorn", "REACHABLE" }, { "Grom'gol, Stranglethorn", "CURRENT" }, { "Stonard, Swamp of Sorrows", "NONE" } }
+NumTaxiNodes = function() return #TAXI end
+TaxiNodeName = function(i) return TAXI[i][1] end
+TaxiNodeGetType = function(i) return TAXI[i][2] end
 LoggingChat = function(on) CHATLOG = on end
 LoggingCombat = function(on) COMBATLOG = on end
 SlashCmdList = {}
@@ -283,6 +287,17 @@ def main():
     g.SlashCmdList.WOWLINK("copy")
     report = g.WowLinkTextWindow.edit.text
     assert "Other items in bank (as of" in report and "Linen Cloth x10" in report, report[-600:]
+    wl_ = g.WowLink
+    assert not wl_.CheckMet(wl_, lua.table(flight="stonard"))
+    g.FIRE("TAXIMAP_OPENED")
+    fl = wl_.char.flight["Eastern Kingdoms"]
+    assert len(fl.known) == 2 and fl.unknown[1] == "Stonard, Swamp of Sorrows"
+    g.TAXI[3][2] = "REACHABLE"  # talked to Stonard's flight master
+    g.FIRE("TAXIMAP_OPENED")
+    assert wl_.CheckMet(wl_, lua.table(flight="stonard")), "flight check ticks once learned"
+    assert "Learned flight path: Stonard, Swamp of Sorrows" in wl_.char.journal[len(wl_.char.journal)].e
+    g.SlashCmdList.WOWLINK("copy")
+    assert "Flight paths on Eastern Kingdoms (as of" in g.WowLinkTextWindow.edit.text
     g.SlashCmdList.WOWLINK("copy")
     assert "=== WOWLINK UPDATE ===" in g.WowLinkTextWindow.edit.text, "second copy defaults to short update"
     # TomTom shows up (as if installed): WowLink should use its arrow from now on
@@ -346,6 +361,7 @@ def main():
     assert "Bind on Equip, tradeable, vendor 12s 34c" in out, out
     out = run_wl(["status", "--full"])
     assert "## Bank (1 kinds" in out
+    assert "## Flight paths on Eastern Kingdoms" in out and "Stonard, Swamp of Sorrows" in out
     run_wl(["done", "12", "65", "999"])
     prompt = run_wl(["prompt"])
     assert prompt.strip() in (ROOT / "PROMPT.md").read_text(encoding="utf-8"), "PROMPT.md is out of date: python tools/wl.py prompt"

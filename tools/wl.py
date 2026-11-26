@@ -455,6 +455,14 @@ def cmd_status(args):
         w(f"\n## Recent gear drops (details: wl.py loot)")
         for x in loot[-8:]:
             w(f"- {ago(x.get('t'))}: {x.get('name')} ({QUALITY.get(x.get('q'), '?')}, {x.get('slot')}, ilvl {x.get('ilvl')}, req {x.get('req')}) #{x.get('id')}")
+    flights = c.get("flight") or {}
+    for cont, f in (flights.items() if isinstance(flights, dict) else []):
+        w(f"\n## Flight paths on {cont} (as of {ago(f.get('t'))})")
+        w("Known: " + ("; ".join(f.get("known") or []) or "none"))
+        if f.get("unknown"):
+            w("Not learned yet: " + "; ".join(f["unknown"]))
+    if not flights:
+        w("\nFlight paths: not seen yet (recorded when the player opens a flight master's map).")
     comp = s.get("completedQuests") or []
     w(f"\nCompleted quests: {len(comp)} (check specific ones with: wl.py done ID...)")
     if full:
@@ -707,7 +715,7 @@ def cmd_verdict(args):
 # ---------------------------------------------------------------- goals
 
 CHECK_TYPES = {"level": int, "quest": int, "questInLog": int, "item": int, "count": int, "money": int,
-               "zone": (int, str), "skill": str, "rank": int}
+               "zone": (int, str), "skill": str, "rank": int, "flight": str}
 
 
 def validate(g):

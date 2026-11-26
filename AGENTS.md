@@ -58,7 +58,8 @@ in game like a quest in the objective tracker. You are a coach, not a bot.
 - `title` is at most 48 characters (it's the tracker header); there can be up to 12 steps.
 - `check` ticks the step automatically once **all** its conditions hold, and the tick is kept after that.
   Conditions: `level`, `quest` (turned in), `questInLog` (picked up or turned in), `item` + `count`,
-  `money` (copper), `skill` + `rank` (e.g. `"First Aid"`, 75), `zone` (uiMapID or zone/subzone name).
+  `money` (copper), `skill` + `rank` (e.g. `"First Aid"`, 75), `zone` (uiMapID or zone/subzone name),
+  `flight` (part of a flight path's name, e.g. `"Stonard"`; `status` lists the known ones once the player has opened a flight map).
 - `waypoint` uses uiMapID and 0-100 coordinates, like guide coordinates. The current step's waypoint is set
   automatically: TomTom's arrow when TomTom is installed, otherwise the game's map pin and supertrack
   arrow. WowLink removes its own waypoint when the step changes or the goal is done.

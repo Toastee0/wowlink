@@ -128,6 +128,7 @@ local function DescribeCheck(c)
 	if c.money then parts[#parts + 1] = "have " .. GetCoinText(c.money) end
 	if c.skill then parts[#parts + 1] = ("%s %d"):format(c.skill, c.rank or 1) end
 	if c.zone then parts[#parts + 1] = "be in " .. tostring(c.zone) end
+	if c.flight then parts[#parts + 1] = "learn the " .. c.flight .. " flight path" end
 	return table.concat(parts, ", ")
 end
 

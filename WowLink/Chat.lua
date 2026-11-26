@@ -202,6 +202,7 @@ local function CleanGoal(g)
 				if tonumber(s.check.zone) then c.zone = tonumber(s.check.zone); any = true
 				elseif type(s.check.zone) == "string" then c.zone = Fix(s.check.zone); any = true end
 				if type(s.check.skill) == "string" then c.skill = Fix(s.check.skill); any = true end
+				if type(s.check.flight) == "string" and s.check.flight ~= "" then c.flight = Fix(s.check.flight); any = true end
 				if c.count and not c.item then c.count = nil end
 				if c.rank and not c.skill then c.rank = nil end
 				if any then st.check = c end
@@ -283,7 +284,8 @@ put it in a single ```json block like this (I paste your whole reply back into t
 Rules for the JSON:
 - "check" ticks a step automatically once ALL its conditions are true: level, quest (turned in),
   questInLog (picked up or turned in), item + count, money (copper), skill + rank, zone (uiMapID or
-  zone name). Leave "check" out and I'll tick the step myself.
+  zone name), flight (part of a flight path's name, e.g. "Stonard"; my report lists the ones I know).
+  Leave "check" out and I'll tick the step myself.
 - "waypoint": uiMapID with 0-100 coordinates. Leave it out unless you're sure.
 - Only use quest and item IDs shown in my report or ones you are certain of. A wrong ID makes a
   step that never ticks.
@@ -370,6 +372,15 @@ function WL:ExportText(full)
 		Container(c.bank.items, ("bank (as of %s)"):format(date("%m-%d %H:%M", c.bank.t)))
 	else
 		w(""); w("Bank: not seen yet (it's recorded next time I open my bank).")
+	end
+	if c.flight and next(c.flight) then
+		for cont, f in pairs(c.flight) do
+			w(""); w(("Flight paths on %s (as of %s): %s"):format(cont, date("%m-%d %H:%M", f.t),
+				#f.known > 0 and table.concat(f.known, "; ") or "none"))
+			if #f.unknown > 0 then w("  Not learned yet: " .. table.concat(f.unknown, "; ")) end
+		end
+	else
+		w(""); w("Flight paths: not seen yet (recorded next time I open a flight master's map).")
 	end
 	w(""); w(("Quests completed so far: %d."):format(#(s.completedQuests or {})))
 	w("=== END ===")
