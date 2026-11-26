@@ -437,10 +437,16 @@ function WL:Evaluate()
 		Print("|cffffd100Goal complete:|r " .. tostring(g.title) .. ". Tell your AI, then /wl sync for the next one.")
 		if PlaySound and SOUNDKIT and SOUNDKIT.UI_QUEST_ROLLING_FORWARD_01 then pcall(PlaySound, SOUNDKIT.UI_QUEST_ROLLING_FORWARD_01) end
 	end
-	local wpKey = cur and (tostring(g.id) .. ":" .. cur)
-	if wpKey and wpKey ~= self.lastWaypoint then
+	-- When the current step changes, point at its waypoint, or take down the old one
+	-- so the arrow never leads to a finished step.
+	local wpKey = (cur and (tostring(g.id) .. ":" .. cur)) or "none"
+	if wpKey ~= self.lastWaypoint then
 		self.lastWaypoint = wpKey
-		if WowLinkDB.autoWaypoint ~= false and g.steps[cur].waypoint then self:SetWaypoint(g.steps[cur]) end
+		if cur and WowLinkDB.autoWaypoint ~= false and g.steps[cur].waypoint then
+			self:SetWaypoint(g.steps[cur])
+		else
+			self:ClearWaypoint()
+		end
 	end
 end
 
@@ -457,23 +463,49 @@ function WL:ToggleStep(i)
 	self:Refresh(true)
 end
 
+-- TomTom (optional addon): a GPS-style arrow. Used when it's loaded, unless /wl tomtom turns it off.
+function WL:UseTomTom()
+	return TomTom and TomTom.AddWaypoint and WowLinkDB.tomtom ~= false
+end
+
+-- Remove only the waypoints WowLink placed; never touch the player's own.
+function WL:ClearWaypoint()
+	if self.ttUID and TomTom and TomTom.RemoveWaypoint then pcall(TomTom.RemoveWaypoint, TomTom, self.ttUID) end
+	self.ttUID = nil
+	if self.mapPin and C_Map and C_Map.ClearUserWaypoint then
+		local cur = C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+		local p = self.mapPin
+		if not cur or (cur.uiMapID == p.map and cur.position and math.abs(cur.position.x - p.x) < 1e-4
+			and math.abs(cur.position.y - p.y) < 1e-4) then
+			pcall(C_Map.ClearUserWaypoint)
+		end
+	end
+	self.mapPin = nil
+end
+
 function WL:SetWaypoint(step)
 	local w = step and step.waypoint
 	if not w then Print("That step has no waypoint."); return end
+	self:ClearWaypoint()
 	local x, y = w.x / 100, w.y / 100
 	local label = w.label or step.text or "WowLink"
-	if TomTom and TomTom.AddWaypoint then
-		pcall(TomTom.AddWaypoint, TomTom, w.map, x, y, { title = label, persistent = false, minimap = true, world = true })
+	local how
+	if self:UseTomTom() then
+		local ok, uid = pcall(TomTom.AddWaypoint, TomTom, w.map, x, y, { title = label, from = "WowLink",
+			persistent = false, minimap = true, world = true, crazy = true, silent = true })
+		if ok and uid then self.ttUID = uid; how = "TomTom arrow" end
 	end
-	if C_Map and C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
-		pcall(function()
-			if C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(w.map) then return end
+	if not how and C_Map and C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
+		local ok = pcall(function()
+			if C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(w.map) then error("no pins here") end
 			C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(w.map, x, y))
 			if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then C_SuperTrack.SetSuperTrackedUserWaypoint(true) end
 		end)
+		if ok then self.mapPin = { map = w.map, x = x, y = y }; how = "map pin" end
 	end
 	local mi = MapInfo(w.map)
-	Print(("Waypoint: %s (%.1f, %.1f in %s)"):format(label, w.x, w.y, mi and mi.name or ("map " .. w.map)))
+	Print(("Waypoint: %s (%.1f, %.1f in %s)%s"):format(label, w.x, w.y, mi and mi.name or ("map " .. w.map),
+		how and (" - " .. how) or ""))
 end
 
 ------------------------------------------------------------------------
@@ -622,6 +654,7 @@ local HELP = {
 	"|cffffd100/wl note <text>|r - leave a note for your AI (|cffffd100/wl note|r lists, |cffffd100/wl note clear|r wipes)",
 	"|cffffd100/wl way|r - set the waypoint for the current step",
 	"|cffffd100/wl autoway|r - toggle setting waypoints automatically",
+	"|cffffd100/wl tomtom|r - use TomTom's arrow when installed (on by default) or the game's map pin",
 	"|cffffd100/wl chatlog|r, |cffffd100/wl combatlog|r - toggle the game's own chat / combat logging to disk",
 	"|cffffd100/wl show|r, |cffffd100hide|r, |cffffd100lock|r, |cffffd100unlock|r, |cffffd100reset|r - tracker panel",
 	"Click a step to tick or untick it; right-click it for its waypoint.",
@@ -653,6 +686,14 @@ SlashCmdList.WOWLINK = function(msg)
 		WowLinkDB[cmd] = (WowLinkDB[cmd] == false)
 		WL:ApplyLogging()
 		Print((cmd == "chatlog" and "Chat" or "Combat") .. " logging to disk " .. (WowLinkDB[cmd] and "on" or "off") .. ".")
+	elseif cmd == "tomtom" then
+		WowLinkDB.tomtom = (WowLinkDB.tomtom == false)
+		if not (TomTom and TomTom.AddWaypoint) then
+			Print("TomTom isn't loaded. Install it to get a GPS-style arrow; WowLink uses the game's map pin meanwhile.")
+		else
+			Print("TomTom arrow " .. (WowLinkDB.tomtom and "on" or "off (using the game's map pin)") .. ".")
+			WL.lastWaypoint = nil; WL:ClearWaypoint(); WL:Refresh(true)
+		end
 	elseif cmd == "autoway" then
 		WowLinkDB.autoWaypoint = (WowLinkDB.autoWaypoint == false)
 		Print("Auto waypoints " .. (WowLinkDB.autoWaypoint and "on" or "off") .. ".")

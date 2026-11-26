@@ -28,7 +28,8 @@ Your goal appears like a quest in the tracker:
 
 - **Steps that tick themselves** when you reach a level, turn in a quest, collect items, earn gold, raise a
   profession, or arrive in a zone. Click any step to tick it yourself.
-- **Waypoints** for the current step (map pin and arrow; TomTom supported).
+- **Waypoints** for the current step: the game's map pin, or **TomTom**'s GPS arrow if you have it installed.
+  The arrow moves on as you finish steps and clears when the goal is done.
 - **Item verdicts in tooltips**: your AI can tag items in your bags, like *"Coach: Upgrade: replaces your belt"*
   or *"Coach: Vendor: weaker than what you wear"*.
 - **Short updates**: click [copy] again later and paste it into the same chat. Your AI sees what you've done since.
@@ -46,6 +47,7 @@ computer unless you paste it somewhere, and the [copy] window shows exactly what
 - `/wl paste`: load the goal and item verdicts from your AI's reply
 - `/wl note <text>`: leave a note for your AI in the next report
 - `/wl way`: waypoint for the current step; `/wl autoway` toggles automatic waypoints
+- `/wl tomtom`: use TomTom's arrow (default when installed) or the game's map pin
 - `/wl`: show or hide the panel; `/wl lock`, `/wl unlock`, `/wl reset`
 
 ## Power mode

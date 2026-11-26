@@ -409,7 +409,8 @@ def cmd_status(args):
             if d:
                 mark = f"[x] (auto {ago(d.get('t'))})" if d.get("how") == "auto" else f"[x] (ticked by player {ago(d.get('t'))})"
             elif d is False:
-                mark = "[ ] (player unticked)"
+                mark = "[>] current (player unticked)" if first else "[ ] (player unticked)"
+                first = False
             elif first:
                 mark, first = "[>] current", False
             else:

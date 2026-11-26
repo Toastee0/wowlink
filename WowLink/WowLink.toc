@@ -4,6 +4,7 @@
 ## Author: Toastee0
 ## Version: 1.1.0
 ## SavedVariables: WowLinkDB
+## OptionalDeps: TomTom
 ## IconTexture: Interface/Icons/INV_Misc_Book_09
 
 Inbox.lua

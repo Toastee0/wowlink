@@ -126,9 +126,11 @@ C_Map = {
   GetPlayerMapPosition = function() return { GetXY = function() return 0.5612, 0.4721 end } end,
   GetMapInfo = function(id) if id == 1436 then return { name = "Westfall", parentMapID = 1415 } end return { name = "Eastern Kingdoms" } end,
   SetUserWaypoint = function(p) WAYPOINT = p end,
+  GetUserWaypoint = function() return WAYPOINT end,
+  ClearUserWaypoint = function() WAYPOINT = nil end,
   CanSetUserWaypointOnMap = function() return true end,
 }
-UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { m = m, x = x, y = y } end }
+UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { uiMapID = m, position = { x = x, y = y } } end }
 C_SuperTrack = { SetSuperTrackedUserWaypoint = function() end }
 LoggingChat = function(on) CHATLOG = on end
 LoggingCombat = function(on) COMBATLOG = on end
@@ -242,7 +244,7 @@ def main():
     g.STATE["items"][2589] = 10
     g.FIRE("BAG_UPDATE_DELAYED")
     assert st.done[2], "step 2 should tick at 10 linen"
-    assert g.WAYPOINT and abs(g.WAYPOINT.x - 0.563) < 1e-6, "waypoint for step 3 should be set"
+    assert g.WAYPOINT and abs(g.WAYPOINT.position.x - 0.563) < 1e-6, "waypoint for step 3 should be set"
     g.STATE.completed[12] = True
     g.FIRE("QUEST_TURNED_IN", 12, 0, 0)
     assert st.done[3]
@@ -279,6 +281,11 @@ def main():
     assert "Other items in bank (as of" in report and "Linen Cloth x10" in report, report[-600:]
     g.SlashCmdList.WOWLINK("copy")
     assert "=== WOWLINK UPDATE ===" in g.WowLinkTextWindow.edit.text, "second copy defaults to short update"
+    # TomTom shows up (as if installed): WowLink should use its arrow from now on
+    lua.execute("""TomTom = { added = {}, removed = {},
+      AddWaypoint = function(self, m, x, y, o) local u = { m, x, y, title = o.title, crazy = o.crazy, from = o.from }
+        table.insert(self.added, u); return u end,
+      RemoveWaypoint = function(self, u) table.insert(self.removed, u) end }""")
     g.SlashCmdList.WOWLINK("paste")
     win = g.WowLinkTextWindow
     win.edit.text = "this has no json"
@@ -301,6 +308,20 @@ def main():
     g.STATE.level = 16
     g.FIRE("PLAYER_LEVEL_UP", 16)
     assert wl.char.goalState.done[1] and wl.current == 2
+    tt_ = g.TomTom
+    g.WAYPOINT = None
+    wl.ToggleStep(wl, 2)  # current -> step 3, which has a waypoint
+    assert len(tt_.added) == 1 and tt_.added[1].crazy and tt_.added[1]["from"] == "WowLink", "TomTom arrow set"
+    assert abs(tt_.added[1][2] - 0.3) < 1e-9 and g.WAYPOINT is None, "TomTom used instead of the map pin"
+    wl.ToggleStep(wl, 3)  # goal complete -> WowLink's waypoint removed
+    assert len(tt_.removed) == 1 and lua.eval("rawequal")(tt_.removed[1], tt_.added[1]), "old TomTom waypoint removed"
+    g.SlashCmdList.WOWLINK("tomtom")  # off -> map pin instead
+    wl.ToggleStep(wl, 3)  # untick: step 3 current again
+    assert len(tt_.added) == 1 and g.WAYPOINT and abs(g.WAYPOINT.position.x - 0.3) < 1e-9, "map pin when TomTom off"
+    wl.ToggleStep(wl, 3)
+    assert g.WAYPOINT is None, "our map pin cleared on completion"
+    g.SlashCmdList.WOWLINK("tomtom")
+    wl.ToggleStep(wl, 3)  # leave step 3 open (unticked by player) for the checks below
     g.SlashCmdList.WOWLINK("sync")
     assert g.RELOADED
     g.FIRE("PLAYER_LOGOUT")
@@ -333,7 +354,7 @@ def main():
     g2.FIRE("ADDON_LOADED", "WowLink")
     g2.FIRE("PLAYER_LOGIN")
     st2 = g2.WowLinkDB.chars["Testchar-Realm"].goalState
-    assert g2.WowLink.goal.title == "Redridge - hit 16" and st2.done[1] and g2.WowLink.current == 2, "pasted goal and progress survive reload"
+    assert g2.WowLink.goal.title == "Redridge - hit 16" and st2.done[1] and st2.done[2] and g2.WowLink.current == 3, "pasted goal and progress survive reload"
     lines2 = []
     g2.GameTooltip.AddLine = lambda self, t, *a: lines2.append(t)
     g2.TOOLTIP_FN(g2.GameTooltip, lua2.table(id=4680))

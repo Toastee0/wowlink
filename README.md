@@ -48,6 +48,7 @@ once into a ChatGPT Project (or custom GPT) or a Claude Project's instructions, 
 | **[paste]** / `/wl paste` | Paste the AI's reply to load its goal and item verdicts. |
 | `/wl note <text>` | Leave a note for your AI, like "stuck finding the Defias hideout". It goes into the next report. `/wl note` lists notes, `/wl note clear` wipes them. |
 | `/wl way` | Set the waypoint for the current step. `/wl autoway` turns automatic waypoints off or on. |
+| `/wl tomtom` | With [TomTom](https://www.curseforge.com/wow/addons/tomtom) installed, waypoints use its GPS-style arrow (on by default). This switches between TomTom and the game's own map pin. |
 | `/wl` | Show or hide the panel. `/wl lock`, `/wl unlock`, `/wl reset` for its position. |
 
 On the panel: **click** a step to tick or untick it, **right-click** it for its waypoint,
