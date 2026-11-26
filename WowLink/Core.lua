@@ -631,7 +631,13 @@ local function AddVerdict(tt, id)
 	if not id then return end
 	local pasted = WL.char and WL.char.verdicts
 	local mine = WL:MyEntry(_G.WowLink_Items)
-	local v = (type(pasted) == "table" and pasted[id]) or (type(mine) == "table" and mine[id])
+	local pv = type(pasted) == "table" and pasted[id] or nil
+	local mv = type(mine) == "table" and mine[id] or nil
+	local v = pv or mv
+	if pv and mv then -- both sources rate this item: the more recently written one wins
+		local mt = WL:MyEntry(_G.WowLink_ItemsUpdated)
+		if (tonumber(mt) or 0) > (WL.char.verdictsUpdated or 0) then v = mv end
+	end
 	if type(v) ~= "string" then return end
 	local low = v:lower()
 	local r, g, b = 0.31, 0.76, 0.97

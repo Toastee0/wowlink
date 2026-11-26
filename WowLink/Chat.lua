@@ -246,6 +246,7 @@ function WL:ImportReply(text)
 	if verdicts then
 		c.verdicts = c.verdicts or {}
 		for id, v in pairs(verdicts) do c.verdicts[id] = v; nv = nv + 1 end
+		c.verdictsUpdated = time()
 	end
 	self.lastWaypoint = nil
 	self:SyncGoalState()

@@ -309,6 +309,11 @@ def main():
     lines.clear()
     g.TOOLTIP_FN(tt, lua.table(id=4680))
     assert lines and lines[0] == "Coach: Vendor: your new drop is better", lines
+    lua.execute('WowLink_ItemsUpdated = { ["Testchar-Realm"] = os.time() + 100 }')  # wl.py verdicts written later
+    lines.clear()
+    g.TOOLTIP_FN(tt, lua.table(id=4680))
+    assert lines == ["Coach: Vendor: weaker than your drops"], lines
+    lua.execute('WowLink_ItemsUpdated = {}')
     g.STATE.level = 16
     g.FIRE("PLAYER_LEVEL_UP", 16)
     assert wl.char.goalState.done[1] and wl.current == 2
