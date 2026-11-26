@@ -380,6 +380,81 @@ function WL:SaveBank()
 	if ok and items then self.char.bank = { t = time(), items = items } end
 end
 
+-- Recipes in the open profession window, with reagents, so the AI can plan skill-ups.
+-- Classic clients use the GetTradeSkill* API; modern clients use C_TradeSkillUI.
+local DIFF = { optimal = "orange", medium = "yellow", easy = "green", trivial = "gray" }
+local DIFF_ENUM = { [0] = "orange", [1] = "yellow", [2] = "green", [3] = "gray" }
+
+local function ItemIDFromLink(link)
+	return link and tonumber(link:match("item:(%d+)")) or nil
+end
+
+local function ReadRecipesClassic()
+	if not (GetNumTradeSkills and GetTradeSkillInfo and GetTradeSkillLine) then return nil end
+	local prof, rank, max = GetTradeSkillLine()
+	if not prof or prof == "" or prof == "UNKNOWN" then return nil end
+	local list = {}
+	for i = 1, GetNumTradeSkills() or 0 do
+		local name, kind, avail = GetTradeSkillInfo(i)
+		if name and kind ~= "header" and kind ~= "subheader" then
+			local r = { name = name, diff = DIFF[kind] or kind, n = avail or 0, reagents = {} }
+			if GetTradeSkillItemLink then r.id = ItemIDFromLink(GetTradeSkillItemLink(i)) end
+			for j = 1, (GetTradeSkillNumReagents and GetTradeSkillNumReagents(i)) or 0 do
+				local rn, _, count, have = GetTradeSkillReagentInfo(i, j)
+				local rid = GetTradeSkillReagentItemLink and ItemIDFromLink(GetTradeSkillReagentItemLink(i, j))
+				r.reagents[#r.reagents + 1] = { name = rn, id = rid, count = count, have = have }
+			end
+			list[#list + 1] = r
+		end
+	end
+	return prof, rank, max, list
+end
+
+local function ReadRecipesModern()
+	local T = C_TradeSkillUI
+	if not (T and T.GetAllRecipeIDs and T.GetRecipeInfo) then return nil end
+	local prof, rank, max
+	if T.GetBaseProfessionInfo then
+		local p = T.GetBaseProfessionInfo()
+		if p then prof, rank, max = p.professionName, p.skillLevel, p.maxSkillLevel end
+	end
+	if not prof or prof == "" then return nil end
+	local list = {}
+	for _, rid in ipairs(T.GetAllRecipeIDs() or {}) do
+		local info = T.GetRecipeInfo(rid)
+		if info and info.learned then
+			local r = { name = info.name, diff = DIFF_ENUM[info.relativeDifficulty] or info.relativeDifficulty,
+				n = info.numAvailable or 0, reagents = {} }
+			local sch = T.GetRecipeSchematic and T.GetRecipeSchematic(rid, false)
+			if sch then
+				r.id = sch.outputItemID
+				for _, slot in ipairs(sch.reagentSlotSchematics or {}) do
+					local rg = slot.reagents and slot.reagents[1]
+					if rg and rg.itemID then
+						local nm = (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(rg.itemID))
+							or (GetItemInfo and GetItemInfo(rg.itemID))
+						r.reagents[#r.reagents + 1] = { name = nm, id = rg.itemID, count = slot.quantityRequired,
+							have = ItemCount(rg.itemID) }
+					end
+				end
+			end
+			list[#list + 1] = r
+		end
+	end
+	return prof, rank, max, list
+end
+
+function WL:SaveRecipes()
+	if not self.char then return end
+	local ok, prof, rank, max, list = pcall(ReadRecipesClassic)
+	if not (ok and prof) then ok, prof, rank, max, list = pcall(ReadRecipesModern) end
+	if not (ok and prof and list and #list > 0) then return end
+	self.char.recipes = self.char.recipes or {}
+	local old = self.char.recipes[prof]
+	self.char.recipes[prof] = { t = time(), rank = rank, max = max, list = list }
+	if not old then Print("Recorded " .. #list .. " " .. prof .. " recipes for your AI.") end
+end
+
 local SLOT_NAMES = { "Head", "Neck", "Shoulder", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrist", "Hands",
 	"Finger1", "Finger2", "Trinket1", "Trinket2", "Back", "MainHand", "OffHand", "Ranged", "Tabard" }
 
@@ -712,7 +787,8 @@ local function Reg(e) pcall(ev.RegisterEvent, ev, e) end
 for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "QUEST_LOG_UPDATE", "QUEST_TURNED_IN",
 	"QUEST_ACCEPTED", "PLAYER_LEVEL_UP", "BAG_UPDATE_DELAYED", "PLAYER_MONEY", "ZONE_CHANGED_NEW_AREA",
 	"ZONE_CHANGED", "SKILL_LINES_CHANGED", "PLAYER_DEAD", "CHAT_MSG_LOOT", "BANKFRAME_OPENED",
-	"BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "PLAYERBANKBAGSLOTS_CHANGED", "TAXIMAP_OPENED" }) do Reg(e) end
+	"BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "PLAYERBANKBAGSLOTS_CHANGED", "TAXIMAP_OPENED", "TRADE_SKILL_SHOW", "TRADE_SKILL_UPDATE",
+	"TRADE_SKILL_LIST_UPDATE" }) do Reg(e) end
 
 ev:SetScript("OnEvent", function(_, event, a1, a2)
 	if event == "ADDON_LOADED" then
@@ -755,6 +831,13 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 		return
 	elseif event == "TAXIMAP_OPENED" then
 		C_Timer.After(0.2, function() WL:SaveFlightPaths() end)
+		return
+	elseif event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_UPDATE" or event == "TRADE_SKILL_LIST_UPDATE" then
+		-- coalesce bursts of updates into one read
+		if not WL.recipeTimer then
+			WL.recipeTimer = true
+			C_Timer.After(0.5, function() WL.recipeTimer = nil; WL:SaveRecipes() end)
+		end
 		return
 	elseif event == "BANKFRAME_OPENED" then
 		WL.bankOpen = true

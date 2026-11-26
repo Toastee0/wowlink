@@ -315,6 +315,24 @@ def main():
     assert wp.label == "Stonard, Swamp of Sorrows (flight master)"
     assert wl_.StepWaypoint(wl_, lua.table(text="x", check=lua.table(flight="nowhere"))) is None
     assert "Learned flight path: Stonard, Swamp of Sorrows" in wl_.char.journal[len(wl_.char.journal)].e
+    # profession window (classic API): recipes with reagents and skill-up color
+    lua.execute("""
+      GetTradeSkillLine = function() return "Blacksmithing", 157, 225 end
+      local R = { { "Weapons", "header" }, { "Green Iron Helm", "medium", 1 }, { "Copper Bracers", "trivial", 0 } }
+      GetNumTradeSkills = function() return #R end
+      GetTradeSkillInfo = function(i) return R[i][1], R[i][2], R[i][3] end
+      GetTradeSkillItemLink = function(i) return "|Hitem:3836:0|h[x]|h" end
+      GetTradeSkillNumReagents = function(i) return 2 end
+      GetTradeSkillReagentInfo = function(i, j) if j == 1 then return "Iron Bar", nil, 12, 17 end return "Citrine", nil, 1, 1 end
+      GetTradeSkillReagentItemLink = function(i, j) return j == 1 and "|Hitem:3575:0|h[Iron Bar]|h" or "|Hitem:3864:0|h[Citrine]|h" end
+    """)
+    g.FIRE("TRADE_SKILL_SHOW")
+    rb = wl_.char.recipes["Blacksmithing"]
+    assert rb.rank == 157 and len(rb.list) == 2, "headers skipped"
+    helm = rb.list[1]
+    assert helm.name == "Green Iron Helm" and helm.diff == "yellow" and helm.id == 3836 and helm.n == 1
+    assert helm.reagents[2].name == "Citrine" and helm.reagents[2].id == 3864 and helm.reagents[1].count == 12
+    assert rb.list[2].diff == "gray"
     g.SlashCmdList.WOWLINK("copy")
     assert "Flight paths on Eastern Kingdoms (as of" in g.WowLinkTextWindow.edit.text
     g.SlashCmdList.WOWLINK("copy")
@@ -381,6 +399,8 @@ def main():
     out = run_wl(["status", "--full"])
     assert "## Bank (1 kinds" in out
     assert "## Flight paths on Eastern Kingdoms" in out and "Stonard, Swamp of Sorrows" in out
+    assert "## Blacksmithing recipes (2 known, skill 157/225" in out, out[-800:]
+    assert "- [yellow] Green Iron Helm, can make 1: 12x Iron Bar (17), 1x Citrine (1)" in out and "Gray (no skill-ups): 1" in out
     run_wl(["done", "12", "65", "999"])
     prompt = run_wl(["prompt"])
     assert prompt.strip() in (ROOT / "PROMPT.md").read_text(encoding="utf-8"), "PROMPT.md is out of date: python tools/wl.py prompt"

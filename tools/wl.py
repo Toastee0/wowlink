@@ -479,6 +479,22 @@ def cmd_status(args):
             w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')}{', AH ~' + coins(b['ah']) if b.get('ah') else ''})" for b in items))
         else:
             w("\nBank: not seen yet (recorded when the player opens their bank).")
+        recipes = c.get("recipes") or {}
+        for prof, r in (recipes.items() if isinstance(recipes, dict) else []):
+            lst = r.get("list") or []
+            order = {"orange": 0, "yellow": 1, "green": 2, "gray": 3}
+            lst = sorted(lst, key=lambda x: (order.get(x.get("diff"), 9), x.get("name") or ""))
+            w(f"\n## {prof} recipes ({len(lst)} known, skill {r.get('rank')}/{r.get('max')}, as of {ago(r.get('t'))})")
+            for x in lst:
+                if x.get("diff") == "gray":
+                    continue
+                mats = ", ".join(f"{m.get('count')}x {m.get('name') or '#' + str(m.get('id'))} ({m.get('have', '?')})"
+                                 for m in x.get("reagents") or [])
+                can = f", can make {x['n']}" if x.get("n") else ""
+                w(f"- [{x.get('diff')}] {x.get('name')}{can}: {mats}")
+            gray = [x.get("name") for x in lst if x.get("diff") == "gray"]
+            if gray:
+                w(f"Gray (no skill-ups): {len(gray)} recipes")
     print("\n".join(out))
 
 
