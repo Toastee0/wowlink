@@ -1,0 +1,12 @@
+# Personal data: goals, verdicts and profiles are per player
+goals/
+verdicts/
+profiles/
+wowlink.json
+CLAUDE.local.md
+brief.txt
+reply.txt
+
+__pycache__/
+*.pyc
+dist/

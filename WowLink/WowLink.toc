@@ -1,0 +1,11 @@
+## Interface: 120105, 50500, 38000, 20505, 16001, 11507
+## Title: WowLink
+## Notes: Your AI coach sets one goal at a time; WowLink shows it like a quest. Guidance only: it displays and records, it never plays for you.
+## Author: Toastee0
+## Version: 1.0.0
+## SavedVariables: WowLinkDB
+## IconTexture: Interface/Icons/INV_Misc_Book_09
+
+Inbox.lua
+Core.lua
+Tracker.lua
