@@ -320,8 +320,30 @@ function WL:SaveFlightPaths()
 	self:Refresh(true)
 end
 
+-- Flight maps can use their own map ID (Forever's Eastern Kingdoms flight map is 1463), which the
+-- world map never shows. Convert through world coordinates to the zone map (or at least the
+-- continent) so pins appear on the world map. x, y are 0-1; returns map, x, y (0-1) or nil.
+local function ToZoneMap(map, x, y)
+	if not (C_Map and C_Map.GetWorldPosFromMapPos and C_Map.GetMapPosFromWorldPos and CreateVector2D) then return nil end
+	local ok, inst, world = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(x, y))
+	if not (ok and inst and world) then return nil end
+	local ok2, cmap, cpos = pcall(C_Map.GetMapPosFromWorldPos, inst, world)
+	if not (ok2 and cmap and cpos) then return nil end
+	if C_Map.GetMapInfoAtPosition then
+		local ok3, zi = pcall(C_Map.GetMapInfoAtPosition, cmap, cpos.x, cpos.y)
+		if ok3 and zi and zi.mapID and zi.mapID ~= cmap then
+			local ok4, _, zpos = pcall(C_Map.GetMapPosFromWorldPos, inst, world, zi.mapID)
+			if ok4 and zpos and zpos.x >= 0 and zpos.x <= 1 and zpos.y >= 0 and zpos.y <= 1 then
+				return zi.mapID, zpos.x, zpos.y
+			end
+		end
+	end
+	return cmap, cpos.x, cpos.y
+end
+WL.ToZoneMap = ToZoneMap
+
 -- A step's waypoint: its own, or for "learn the X flight path" steps, that flight master's
--- position as last seen on a flight map.
+-- position as last seen on a flight map (converted to its zone map).
 function WL:StepWaypoint(step)
 	if not step then return nil end
 	if step.waypoint then return step.waypoint end
@@ -331,6 +353,11 @@ function WL:StepWaypoint(step)
 	for _, cont in pairs(self.char and self.char.flight or {}) do
 		for name, p in pairs(cont.pos or {}) do
 			if name:lower():find(want, 1, true) then
+				local m, x, y = ToZoneMap(p.map, p.x / 100, p.y / 100)
+				if m then
+					return { map = m, x = math.floor(x * 1000 + 0.5) / 10, y = math.floor(y * 1000 + 0.5) / 10,
+						label = name .. " (flight master)" }
+				end
 				return { map = p.map, x = p.x, y = p.y, label = name .. " (flight master)" }
 			end
 		end

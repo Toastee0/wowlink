@@ -131,6 +131,13 @@ C_Map = {
   GetUserWaypoint = function() return WAYPOINT end,
   ClearUserWaypoint = function() WAYPOINT = nil end,
   CanSetUserWaypointOnMap = function() return true end,
+  -- flight map 1463 -> world coords -> continent 1415 -> zone 1435 (Swamp of Sorrows)
+  GetWorldPosFromMapPos = function(map, v) if map == 1463 then return 0, { x = v.x * 1000, y = v.y * 1000 } end end,
+  GetMapPosFromWorldPos = function(inst, w, override)
+    if override == 1435 then return 1435, { x = 0.5, y = 0.625 } end
+    return 1415, { x = w.x / 1000, y = w.y / 1000 }
+  end,
+  GetMapInfoAtPosition = function(map, x, y) if map == 1415 then return { mapID = 1435, name = "Swamp of Sorrows" } end end,
 }
 ItemLocation = { CreateFromBagAndSlot = function(_, bag, slot) return { bag = bag, slot = slot } end }
 UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { uiMapID = m, position = { x = x, y = y } } end }
@@ -140,7 +147,8 @@ NumTaxiNodes = function() return #TAXI end
 TaxiNodeName = function(i) return TAXI[i][1] end
 TaxiNodeGetType = function(i) return TAXI[i][2] end
 TaxiNodePosition = function(i) return 0.1 * i, 0.2 * i end
-GetTaxiMapID = function() return 1415 end
+GetTaxiMapID = function() return 1463 end  -- Forever's flight-map-only map
+CreateVector2D = function(x, y) return { x = x, y = y } end
 Auctionator = { API = { v1 = {
   GetAuctionPriceByItemLink = function(caller, link) assert(caller == "WowLink"); if link:find("item:6087") then return 15000 end end,
   GetAuctionPriceByItemID = function(caller, id) if id == 2589 then return 35 end end,
@@ -303,7 +311,7 @@ def main():
     g.FIRE("TAXIMAP_OPENED")
     assert wl_.CheckMet(wl_, lua.table(flight="stonard")), "flight check ticks once learned"
     wp = wl_.StepWaypoint(wl_, lua.table(text="Learn Stonard", check=lua.table(flight="stonard")))
-    assert wp and wp.map == 1415 and abs(wp.x - 30) < 1e-9 and abs(wp.y - 60) < 1e-9, "flight step gets the flight master's position"
+    assert wp and wp.map == 1435 and abs(wp.x - 50) < 1e-9 and abs(wp.y - 62.5) < 1e-9, "flight master converted to its zone map"
     assert wp.label == "Stonard, Swamp of Sorrows (flight master)"
     assert wl_.StepWaypoint(wl_, lua.table(text="x", check=lua.table(flight="nowhere"))) is None
     assert "Learned flight path: Stonard, Swamp of Sorrows" in wl_.char.journal[len(wl_.char.journal)].e
