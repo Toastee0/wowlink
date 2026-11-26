@@ -266,14 +266,20 @@ local function ReadTaxi()
 		if ok and type(list) == "table" then
 			local S = Enum and Enum.FlightPathState
 			for _, n in ipairs(list) do
-				if n.name then nodes[#nodes + 1] = { name = n.name, known = not (S and n.state == S.Unreachable) } end
+				if n.name then
+					local pos = n.position
+					nodes[#nodes + 1] = { name = n.name, known = not (S and n.state == S.Unreachable),
+						x = pos and pos.x, y = pos and pos.y }
+				end
 			end
 		end
 	end
 	if #nodes == 0 and NumTaxiNodes and TaxiNodeName then
 		for i = 1, NumTaxiNodes() do
 			local t = TaxiNodeGetType and TaxiNodeGetType(i)
-			nodes[#nodes + 1] = { name = TaxiNodeName(i), known = (t == "CURRENT" or t == "REACHABLE" or t == nil) }
+			local x, y
+			if TaxiNodePosition then x, y = TaxiNodePosition(i) end
+			nodes[#nodes + 1] = { name = TaxiNodeName(i), known = (t == "CURRENT" or t == "REACHABLE" or t == nil), x = x, y = y }
 		end
 	end
 	return nodes
@@ -298,8 +304,35 @@ function WL:SaveFlightPaths()
 		end
 	end
 	table.sort(known); table.sort(unknown)
-	self.char.flight[cont] = { t = time(), known = known, unknown = unknown }
+	-- where each flight master is (on the flight map's own map), for automatic waypoints
+	local mapID = GetTaxiMapID and GetTaxiMapID()
+	local pos = {}
+	if mapID then
+		for _, n in ipairs(nodes) do
+			if n.x and n.y and n.x > 0 and n.y > 0 then
+				pos[n.name] = { map = mapID, x = math.floor(n.x * 1000 + 0.5) / 10, y = math.floor(n.y * 1000 + 0.5) / 10 }
+			end
+		end
+	end
+	self.char.flight[cont] = { t = time(), known = known, unknown = unknown, pos = pos }
 	self:Refresh(true)
+end
+
+-- A step's waypoint: its own, or for "learn the X flight path" steps, that flight master's
+-- position as last seen on a flight map.
+function WL:StepWaypoint(step)
+	if not step then return nil end
+	if step.waypoint then return step.waypoint end
+	local want = step.check and step.check.flight
+	if not want then return nil end
+	want = want:lower()
+	for _, cont in pairs(self.char and self.char.flight or {}) do
+		for name, p in pairs(cont.pos or {}) do
+			if name:lower():find(want, 1, true) then
+				return { map = p.map, x = p.x, y = p.y, label = name .. " (flight master)" }
+			end
+		end
+	end
 end
 
 function WL:KnowsFlight(name)
@@ -552,7 +585,7 @@ function WL:Evaluate()
 	local wpKey = (cur and (tostring(g.id) .. ":" .. cur)) or "none"
 	if wpKey ~= self.lastWaypoint then
 		self.lastWaypoint = wpKey
-		if cur and WowLinkDB.autoWaypoint ~= false and g.steps[cur].waypoint then
+		if cur and WowLinkDB.autoWaypoint ~= false and self:StepWaypoint(g.steps[cur]) then
 			self:SetWaypoint(g.steps[cur])
 		else
 			self:ClearWaypoint()
@@ -594,7 +627,7 @@ function WL:ClearWaypoint()
 end
 
 function WL:SetWaypoint(step)
-	local w = step and step.waypoint
+	local w = self:StepWaypoint(step)
 	if not w then Print("That step has no waypoint."); return end
 	self:ClearWaypoint()
 	local x, y = w.x / 100, w.y / 100

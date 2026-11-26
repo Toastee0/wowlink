@@ -37,7 +37,8 @@ Rules for the JSON:
   questInLog (picked up or turned in), item + count, money (copper), skill + rank, zone (uiMapID or
   zone name), flight (part of a flight path's name, e.g. "Stonard"; my report lists the ones I know).
   Leave "check" out and I'll tick the step myself.
-- "waypoint": uiMapID with 0-100 coordinates. Leave it out unless you're sure.
+- "waypoint": uiMapID with 0-100 coordinates. Leave it out unless you're sure. Steps with a
+  "flight" check get the flight master's position automatically.
 - Only use quest and item IDs shown in my report or ones you are certain of. A wrong ID makes a
   step that never ticks.
 - Same for directions: don't state travel routes (zeppelins, boats, flight paths), NPC or building

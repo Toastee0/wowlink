@@ -63,6 +63,8 @@ in game like a quest in the objective tracker. You are a coach, not a bot.
 - `waypoint` uses uiMapID and 0-100 coordinates, like guide coordinates. The current step's waypoint is set
   automatically: TomTom's arrow when TomTom is installed, otherwise the game's map pin and supertrack
   arrow. WowLink removes its own waypoint when the step changes or the goal is done.
+  Steps with a `flight` check get the flight master's position automatically (from the last flight
+  map the player opened), so leave `waypoint` out for those.
 - Steps without `check` are ticked by the player clicking them. A player can also untick an auto
   step, and auto-checking then stays off for that step.
 - `verdicts` is optional; it's the same as running `verdict` for each item.

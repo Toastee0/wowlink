@@ -139,6 +139,8 @@ TAXI = { { "Booty Bay, Stranglethorn", "REACHABLE" }, { "Grom'gol, Stranglethorn
 NumTaxiNodes = function() return #TAXI end
 TaxiNodeName = function(i) return TAXI[i][1] end
 TaxiNodeGetType = function(i) return TAXI[i][2] end
+TaxiNodePosition = function(i) return 0.1 * i, 0.2 * i end
+GetTaxiMapID = function() return 1415 end
 Auctionator = { API = { v1 = {
   GetAuctionPriceByItemLink = function(caller, link) assert(caller == "WowLink"); if link:find("item:6087") then return 15000 end end,
   GetAuctionPriceByItemID = function(caller, id) if id == 2589 then return 35 end end,
@@ -300,6 +302,10 @@ def main():
     g.TAXI[3][2] = "REACHABLE"  # talked to Stonard's flight master
     g.FIRE("TAXIMAP_OPENED")
     assert wl_.CheckMet(wl_, lua.table(flight="stonard")), "flight check ticks once learned"
+    wp = wl_.StepWaypoint(wl_, lua.table(text="Learn Stonard", check=lua.table(flight="stonard")))
+    assert wp and wp.map == 1415 and abs(wp.x - 30) < 1e-9 and abs(wp.y - 60) < 1e-9, "flight step gets the flight master's position"
+    assert wp.label == "Stonard, Swamp of Sorrows (flight master)"
+    assert wl_.StepWaypoint(wl_, lua.table(text="x", check=lua.table(flight="nowhere"))) is None
     assert "Learned flight path: Stonard, Swamp of Sorrows" in wl_.char.journal[len(wl_.char.journal)].e
     g.SlashCmdList.WOWLINK("copy")
     assert "Flight paths on Eastern Kingdoms (as of" in g.WowLinkTextWindow.edit.text

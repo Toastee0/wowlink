@@ -138,13 +138,14 @@ local function RowEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	GameTooltip:AddLine(s.text, 1, 1, 1, true)
 	if s.detail then GameTooltip:AddLine(s.detail, 0.8, 0.8, 0.8, true) end
-	if s.waypoint then
-		GameTooltip:AddLine(("Waypoint: %.1f, %.1f%s"):format(s.waypoint.x, s.waypoint.y,
-			s.waypoint.label and (" - " .. s.waypoint.label) or ""), 0.4, 0.8, 1, true)
+	local wp = WL:StepWaypoint(s)
+	if wp then
+		GameTooltip:AddLine(("Waypoint: %.1f, %.1f%s"):format(wp.x, wp.y,
+			wp.label and (" - " .. wp.label) or ""), 0.4, 0.8, 1, true)
 	end
 	if s.check then GameTooltip:AddLine("Ticks itself when you " .. DescribeCheck(s.check) .. ".", 0.5, 0.9, 0.5, true) end
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("Click: tick / untick" .. (s.waypoint and "    Right-click: waypoint" or ""), 0.5, 0.5, 0.5)
+	GameTooltip:AddLine("Click: tick / untick" .. (wp and "    Right-click: waypoint" or ""), 0.5, 0.5, 0.5)
 	GameTooltip:Show()
 end
 
