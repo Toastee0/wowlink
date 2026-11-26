@@ -14,6 +14,7 @@
   python tools/wl.py chat [N] [--grep REGEX]            tail the game's chat log (Logs/WoWChatLog.txt, live)
   python tools/wl.py combat [MINUTES] [CHAR]            kills, damage taken, deaths from the live combat log
   python tools/wl.py guild [CHAR] [--online] [--levels 25-35] [--grep TEXT]   guild roster: level, class, rank, last seen, notes
+  python tools/wl.py talents [CHAR]                    every talent: rank, row, tooltip text
   python tools/wl.py verdict CHAR ITEMID "text"|--clear  the AI's one-line verdict, shown in that item's tooltip
   python tools/wl.py render                             rebuild Inbox.lua from goals/ and verdicts/
   python tools/wl.py check                              syntax-check the addon's Lua (needs: pip install lupa)
@@ -1015,6 +1016,25 @@ def cmd_brief(args):
     print(buf.getvalue())
 
 
+def cmd_talents(args):
+    """talents [CHAR]: every talent in each tree with rank, row and tooltip text (when the client gives it)."""
+    db, _ = load_db()
+    key = resolve_char(args[0] if args else None, db)
+    s = (db["chars"].get(key) or {}).get("snapshot") or {}
+    tal = s.get("talents")
+    if not tal:
+        die("no talents recorded yet: /reload, then /wl sync")
+    print(f"# Talents for {key} (level {s.get('level')} {s.get('class')}, as of {ago(s.get('t'))})")
+    for t in tal:
+        print(f"\n## {t.get('name')}: {t.get('spent')} points")
+        rows = [(x, True) for x in t.get("list") or []] + [(x, False) for x in t.get("open") or []]
+        rows.sort(key=lambda p: (p[0].get("row") or 0, p[0].get("name") or ""))
+        for x, taken in rows:
+            rank = f"{x.get('rank')}/{x.get('max')}" if taken else f"0/{x.get('max')}"
+            desc = f": {x['desc']}" if x.get("desc") else ""
+            print(f"- row {x.get('row')} {x.get('name')} {rank}{desc}")
+
+
 def cmd_guild(args):
     """guild [CHAR] [--online] [--levels LO-HI] [--grep TEXT]: the guild roster as last seen by the addon."""
     online_only = "--online" in args
@@ -1057,7 +1077,7 @@ def cmd_guild(args):
 COMMANDS = {"status": cmd_status, "chars": cmd_chars, "done": cmd_done, "goal": cmd_goal, "show": cmd_show,
             "clear": cmd_clear, "render": lambda a: print(f"Inbox.lua: {render_inbox()} goal(s)"),
             "check": cmd_check, "setup": cmd_setup, "install": cmd_setup, "loot": cmd_loot, "chat": cmd_chat,
-            "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief, "guild": cmd_guild,
+            "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief, "guild": cmd_guild, "talents": cmd_talents,
             "prompt": lambda a: print(coach_prompt(), end="")}
 
 if __name__ == "__main__":

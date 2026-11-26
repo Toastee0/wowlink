@@ -469,6 +469,9 @@ def main():
     assert tal and tal[1].name == "Arms" and tal[1].spent == 3 and tal[1].list[1].name == "Mortal Strike", "trait talents"
     assert tal[2].spent == 0 and tal[3].name == "Protection" and tal[3].list[1].name == "Shield Specialization" and tal[3].list[1].max == 5
     assert tal[2].open[1].max == 5 and tal[2].open[1].row == 1 and tal[3].list[1].row == 2, "untaken talents and rows"
+    lua2.execute("C_Traits.GetTraitDescription = function(e, r) return '|cffffffffIncreases|r block\\nchance by 1%.' end")
+    g2.WowLink.Snapshot(g2.WowLink)
+    assert g2.WowLinkDB.chars["Testchar-Realm"].snapshot.talents[3].list[1].desc == "Increases block chance by 1%.", "talent tooltip text"
     print("\nALL OK")
 
 

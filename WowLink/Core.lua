@@ -504,14 +504,22 @@ local function ReadTalentsTraits()
 				local rank = n.ranksPurchased or n.currentRank or 0
 				do
 					local entry = (n.activeEntry and n.activeEntry.entryID) or (n.entryIDs and n.entryIDs[1])
-					local name
+					local name, desc
 					if entry and T.GetEntryInfo and T.GetDefinitionInfo then
 						local e = T.GetEntryInfo(config, entry)
 						local d = e and e.definitionID and T.GetDefinitionInfo(e.definitionID)
 						name = d and (d.overrideName or SpellName(d.spellID))
+						if T.GetTraitDescription then
+							local ok, txt = pcall(T.GetTraitDescription, entry, math.max(rank, 1))
+							if ok and type(txt) == "string" and txt ~= "" then desc = txt end
+						end
+						if not desc and d and d.spellID and C_Spell and C_Spell.GetSpellDescription then
+							local ok, txt = pcall(C_Spell.GetSpellDescription, d.spellID)
+							if ok and type(txt) == "string" and txt ~= "" then desc = txt end
+						end
 					end
 					nodes[#nodes + 1] = { name = name or ("node " .. nodeID), rank = rank, max = n.maxRanks, x = x, y = n.posY,
-						sub = n.subTreeID }
+						sub = n.subTreeID, desc = desc and desc:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%s+", " "):sub(1, 300) }
 				end
 			end
 		end
@@ -541,10 +549,10 @@ local function ReadTalentsTraits()
 		local row = n.y and rowOf[n.y]
 		if n.rank > 0 then
 			t.spent = t.spent + n.rank
-			t.list[#t.list + 1] = { name = n.name, rank = n.rank, max = n.max, row = row }
+			t.list[#t.list + 1] = { name = n.name, rank = n.rank, max = n.max, row = row, desc = n.desc }
 		else
 			t.open = t.open or {}
-			t.open[#t.open + 1] = { name = n.name, max = n.max, row = row }
+			t.open[#t.open + 1] = { name = n.name, max = n.max, row = row, desc = n.desc }
 		end
 	end
 	return out
