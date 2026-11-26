@@ -53,7 +53,10 @@ local function ItemDetail(link)
 			d.stats = {}
 			for k, v in pairs(stats) do
 				if k == "RESISTANCE0_NAME" then k = "ARMOR" end
-				d.stats[(k:gsub("^ITEM_MOD_", ""):gsub("_SHORT$", ""))] = v
+				-- RESISTANCE1-6_NAME duplicate the named resistance stats; skip them
+				if not k:find("^RESISTANCE%d_NAME$") then
+					d.stats[(k:gsub("^ITEM_MOD_", ""):gsub("_SHORT$", ""))] = v
+				end
 			end
 		end
 	end

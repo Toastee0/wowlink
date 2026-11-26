@@ -510,7 +510,8 @@ SLOT_MAP = {"HEAD": ["Head"], "NECK": ["Neck"], "SHOULDER": ["Shoulder"], "BODY"
 def fmt_stats(st):
     if not st:
         return "no stats"
-    return ", ".join(f"{k.replace('_', ' ').title()} {v:g}" if isinstance(v, (int, float)) else f"{k} {v}"
+    st = {k: v for k, v in st.items() if not re.fullmatch(r"RESISTANCE[1-6]_NAME", k)}
+    return ", ".join(f"{k.replace('_', ' ').title()} {round(v, 1):g}" if isinstance(v, (int, float)) else f"{k} {v}"
                      for k, v in sorted(st.items()))
 
 

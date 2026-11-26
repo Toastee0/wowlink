@@ -29,6 +29,7 @@ local function Stats(st)
 	local parts = {}
 	for k, v in pairs(st) do
 		local name = k:lower():gsub("_", " "):gsub("^%l", string.upper)
+		if type(v) == "number" and v % 1 ~= 0 then v = ("%.1f"):format(v) end
 		parts[#parts + 1] = name .. " " .. tostring(v)
 	end
 	table.sort(parts)
