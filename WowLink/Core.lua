@@ -187,7 +187,11 @@ local function AHPrice(link, id)
 	end
 	if type(price) ~= "number" or price <= 0 then return nil end
 	local age
-	if id and api.GetAuctionAgeByItemID then
+	if link and api.GetAuctionAgeByItemLink then
+		local ok, v = pcall(api.GetAuctionAgeByItemLink, "WowLink", link)
+		if ok and type(v) == "number" then age = v end
+	end
+	if age == nil and id and api.GetAuctionAgeByItemID then
 		local ok, v = pcall(api.GetAuctionAgeByItemID, "WowLink", id)
 		if ok and type(v) == "number" then age = v end
 	end
