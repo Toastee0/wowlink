@@ -32,6 +32,7 @@ in game like a quest in the objective tracker. You are a coach, not a bot.
 | `loot [CHAR] [--all]` | Recent drops with ilvl, slot and stats next to the equipped item in that slot, unequipped gear in bags, and live chat-log loot since the snapshot. |
 | `combat [MIN] [CHAR]` | Killing blows, damage taken, and deaths with the last hits before each. |
 | `chat [N] [--grep RE]` | Tail of the chat log. |
+| `guild [CHAR] [--online] [--levels LO-HI] [--grep TEXT]` | Guild roster (recorded on login and sync): level, class, rank, zone or days since last seen, and public notes (often professions). For planning group runs. |
 | `done ID...` | Whether quests are turned in, in the log, or neither. |
 | `goal CHAR FILE` or `-` for stdin | Set a new goal. Validates, archives the old one to `goals/history/`, rewrites `Inbox.lua`. `--keep-id` revises in place and keeps progress; use it only when step order is unchanged or steps are appended. |
 | `show CHAR` / `clear CHAR` | Print or remove the goal. |

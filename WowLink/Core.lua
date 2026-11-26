@@ -479,6 +479,34 @@ local function ReadTalents()
 	return #out > 0 and out or nil
 end
 
+-- Guild roster, for planning group runs: who's in the guild, level, class, rank, zone, last seen.
+-- Kept in SavedVariables for the player's own agent; never added to the [copy] report.
+local function RequestGuildRoster()
+	if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster)
+	elseif GuildRoster then pcall(GuildRoster) end
+end
+
+function WL:SaveGuild()
+	if not (self.char and IsInGuild and IsInGuild() and GetNumGuildMembers and GetGuildRosterInfo) then return end
+	local total = GetNumGuildMembers() or 0
+	if total == 0 then return end
+	local members = {}
+	for i = 1, total do
+		local name, rank, _, level, class, zone, note, _, online = GetGuildRosterInfo(i)
+		if name then
+			local m = { name = name:gsub("%-$", ""), rank = rank, level = level, class = class, zone = zone,
+				online = online and true or false }
+			if note and note ~= "" then m.note = note end
+			if not online and GetGuildRosterLastOnline then
+				local y, mo, d, h = GetGuildRosterLastOnline(i)
+				if y then m.lastDays = (y or 0) * 365 + (mo or 0) * 30 + (d or 0) + ((h or 0) >= 12 and 1 or 0) end
+			end
+			members[#members + 1] = m
+		end
+	end
+	self.char.guild = { t = time(), name = GetGuildInfo and GetGuildInfo("player") or nil, members = members }
+end
+
 local SLOT_NAMES = { "Head", "Neck", "Shoulder", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrist", "Hands",
 	"Finger1", "Finger2", "Trinket1", "Trinket2", "Back", "MainHand", "OffHand", "Ranged", "Tabard" }
 
@@ -559,6 +587,7 @@ function WL:Snapshot()
 	s.skills = safe(ReadSkills)
 	s.equipment = safe(ReadEquipment)
 	s.talents = safe(ReadTalents)
+	pcall(self.SaveGuild, self)
 	s.bags = safe(ReadBags)
 	s.completedQuests = safe(ReadCompleted)
 	self.char.snapshot = s
@@ -813,7 +842,7 @@ for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "QUEST_LOG
 	"QUEST_ACCEPTED", "PLAYER_LEVEL_UP", "BAG_UPDATE_DELAYED", "PLAYER_MONEY", "ZONE_CHANGED_NEW_AREA",
 	"ZONE_CHANGED", "SKILL_LINES_CHANGED", "PLAYER_DEAD", "CHAT_MSG_LOOT", "BANKFRAME_OPENED",
 	"BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "PLAYERBANKBAGSLOTS_CHANGED", "TAXIMAP_OPENED", "TRADE_SKILL_SHOW", "TRADE_SKILL_UPDATE",
-	"TRADE_SKILL_LIST_UPDATE" }) do Reg(e) end
+	"TRADE_SKILL_LIST_UPDATE", "GUILD_ROSTER_UPDATE" }) do Reg(e) end
 
 ev:SetScript("OnEvent", function(_, event, a1, a2)
 	if event == "ADDON_LOADED" then
@@ -843,6 +872,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 		ReadQuestLog() -- fill title cache
 		WL:SyncGoalState()
 		WL:ApplyLogging()
+		RequestGuildRoster()
 		if WL.InitUI then WL:InitUI() end
 		if not WL.goal then
 			Print("No goal yet for " .. WL.key .. ". Type |cffffd100/wl copy|r to ask your AI for one.")
@@ -862,6 +892,13 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 		if not WL.recipeTimer then
 			WL.recipeTimer = true
 			C_Timer.After(0.5, function() WL.recipeTimer = nil; WL:SaveRecipes() end)
+		end
+		return
+	elseif event == "GUILD_ROSTER_UPDATE" then
+		if not WL.guildTimer then -- fires often; read at most every 30s
+			WL.guildTimer = true
+			C_Timer.After(30, function() WL.guildTimer = nil end)
+			pcall(WL.SaveGuild, WL)
 		end
 		return
 	elseif event == "BANKFRAME_OPENED" then

@@ -148,6 +148,14 @@ TaxiNodeName = function(i) return TAXI[i][1] end
 TaxiNodeGetType = function(i) return TAXI[i][2] end
 TaxiNodePosition = function(i) return 0.1 * i, 0.2 * i end
 GetTaxiMapID = function() return 1463 end  -- Forever's flight-map-only map
+IsInGuild = function() return true end
+GetGuildInfo = function() return "Pink Devilsaurs", "Officer", 1 end
+GUILD = { { "Sakkra-", "Member", 3, 28, "Paladin", "Tirisfal Glades", "BS/Mining", "", true },
+          { "Shot", "Member", 3, 31, "Rogue", "Orgrimmar", "", "", false } }
+GetNumGuildMembers = function() return #GUILD, 1 end
+GetGuildRosterInfo = function(i) return unpack(GUILD[i]) end
+GetGuildRosterLastOnline = function(i) return 0, 0, 2, 5 end
+C_GuildInfo = { GuildRoster = function() GUILD_REQUESTED = true end }
 GetNumTalentTabs = function() return 2 end
 GetTalentTabInfo = function(t) return 161 + t, ({ "Arms", "Fury" })[t], "desc", "Interface/Icons/x", 0 end
 GetNumTalents = function(t) return 2 end
@@ -262,6 +270,7 @@ def main():
         lua.execute((proj / "WowLink" / name).read_text(encoding="utf-8"))
     g.FIRE("ADDON_LOADED", "WowLink")
     g.FIRE("PLAYER_LOGIN")
+    assert g.GUILD_REQUESTED, "roster requested on login"
     st = g.WowLinkDB.chars["Testchar-Realm"].goalState
     assert st.done[1] and not st.done[2], "step 1 should auto-tick (quest 65 in log)"
     assert g.CHATLOG and g.COMBATLOG, "logging should be on by default"
@@ -402,6 +411,13 @@ def main():
     out = run_wl(["loot"])
     assert "Chausses of Westfall" in out and "Agility 5" in out and "vs Legs" in out
     assert "Bind on Equip, tradeable, vendor 12s 34c, AH ~1g 50s 0c seen 2d ago" in out, out
+    out = run_wl(["guild"])
+    assert "# Pink Devilsaurs: 2 members, 1 online" in out, out
+    assert "- Sakkra: 28 Paladin, Member, online in Tirisfal Glades  [BS/Mining]" in out, out
+    assert "- Shot: 31 Rogue, Member, seen 2d ago" in out, out
+    out = run_wl(["guild", "--online", "--levels", "25-30"])
+    assert "Sakkra" in out and "Shot" not in out, out
+    assert "Pink Devilsaurs" not in g.WowLinkTextWindow.edit.text, "roster stays out of the [copy] report"
     out = run_wl(["status", "--full"])
     assert "## Bank (1 kinds" in out
     assert "Talents, Arms 3: Deep Wounds 3/3" in out and "Talents, Fury 0" in out, out[:1500]

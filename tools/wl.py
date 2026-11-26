@@ -13,6 +13,7 @@
   python tools/wl.py loot [CHAR] [--all]                recent drops with stats vs. equipped, plus live chat-log loot
   python tools/wl.py chat [N] [--grep REGEX]            tail the game's chat log (Logs/WoWChatLog.txt, live)
   python tools/wl.py combat [MINUTES] [CHAR]            kills, damage taken, deaths from the live combat log
+  python tools/wl.py guild [CHAR] [--online] [--levels 25-35] [--grep TEXT]   guild roster: level, class, rank, last seen, notes
   python tools/wl.py verdict CHAR ITEMID "text"|--clear  the AI's one-line verdict, shown in that item's tooltip
   python tools/wl.py render                             rebuild Inbox.lua from goals/ and verdicts/
   python tools/wl.py check                              syntax-check the addon's Lua (needs: pip install lupa)
@@ -1012,10 +1013,49 @@ def cmd_brief(args):
     print(buf.getvalue())
 
 
+def cmd_guild(args):
+    """guild [CHAR] [--online] [--levels LO-HI] [--grep TEXT]: the guild roster as last seen by the addon."""
+    online_only = "--online" in args
+    lo, hi, grep = 0, 999, None
+    rest = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--levels" and i + 1 < len(args):
+            lo, _, hi = args[i + 1].partition("-")
+            lo, hi = int(lo or 0), int(hi or lo or 999)
+            i += 2
+            continue
+        if a == "--grep" and i + 1 < len(args):
+            grep = args[i + 1].lower()
+            i += 2
+            continue
+        if not a.startswith("--"):
+            rest.append(a)
+        i += 1
+    db, _ = load_db()
+    key = resolve_char(rest[0] if rest else None, db)
+    g = (db["chars"].get(key) or {}).get("guild")
+    if not g:
+        die("no guild roster yet: the addon records it on login and /wl sync (after a /reload with this version)")
+    ms = g.get("members") or []
+    shown = [m for m in ms
+             if (m.get("online") or not online_only) and lo <= (m.get("level") or 0) <= hi
+             and (not grep or grep in " ".join(str(m.get(k) or "") for k in ("name", "class", "rank", "zone", "note")).lower())]
+    shown.sort(key=lambda m: (not m.get("online"), -(m.get("level") or 0), m.get("name") or ""))
+    n_on = sum(1 for m in ms if m.get("online"))
+    print(f"# {g.get('name') or 'Guild'}: {len(ms)} members, {n_on} online (as of {ago(g.get('t'))}); showing {len(shown)}")
+    for m in shown:
+        seen = "online" if m.get("online") else (f"seen {m['lastDays']}d ago" if m.get("lastDays") is not None else "offline")
+        where = f" in {m['zone']}" if m.get("online") and m.get("zone") else ""
+        note = f"  [{m['note']}]" if m.get("note") else ""
+        print(f"- {m.get('name')}: {m.get('level')} {m.get('class')}, {m.get('rank')}, {seen}{where}{note}")
+
+
 COMMANDS = {"status": cmd_status, "chars": cmd_chars, "done": cmd_done, "goal": cmd_goal, "show": cmd_show,
             "clear": cmd_clear, "render": lambda a: print(f"Inbox.lua: {render_inbox()} goal(s)"),
             "check": cmd_check, "setup": cmd_setup, "install": cmd_setup, "loot": cmd_loot, "chat": cmd_chat,
-            "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief,
+            "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief, "guild": cmd_guild,
             "prompt": lambda a: print(coach_prompt(), end="")}
 
 if __name__ == "__main__":
