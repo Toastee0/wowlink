@@ -343,11 +343,23 @@ function WL:ExportText(full)
 		w(""); w("Recent gear drops:")
 		for k = math.max(1, #loot - 9), #loot do w("- " .. Item(loot[k])) end
 	end
-	local bagGear = {}
-	for _, b in ipairs(s.bags or {}) do if b.slot then bagGear[#bagGear + 1] = b end end
-	if #bagGear > 0 then
-		w(""); w("Unequipped gear in bags:")
-		for _, b in ipairs(bagGear) do w("- " .. Item(b)) end
+	local function Container(items, label)
+		local gear, other = {}, {}
+		for _, b in ipairs(items or {}) do
+			if b.slot then gear[#gear + 1] = b
+			elseif b.name then other[#other + 1] = b.name .. ((b.n or 1) > 1 and (" x" .. b.n) or "") end
+		end
+		if #gear > 0 then
+			w(""); w("Unequipped gear in " .. label .. ":")
+			for _, b in ipairs(gear) do w("- " .. Item(b)) end
+		end
+		if #other > 0 then w(""); w("Other items in " .. label .. ": " .. table.concat(other, ", ")) end
+	end
+	Container(s.bags, "bags")
+	if c.bank then
+		Container(c.bank.items, ("bank (as of %s)"):format(date("%m-%d %H:%M", c.bank.t)))
+	else
+		w(""); w("Bank: not seen yet (it's recorded next time I open my bank).")
 	end
 	w(""); w(("Quests completed so far: %d."):format(#(s.completedQuests or {})))
 	w("=== END ===")

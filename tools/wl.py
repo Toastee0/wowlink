@@ -463,6 +463,13 @@ def cmd_status(args):
         bags = s.get("bags") or []
         w(f"\n## Bags ({len(bags)} kinds)")
         w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')})" for b in bags))
+        bank = c.get("bank") or {}
+        if bank:
+            items = bank.get("items") or []
+            w(f"\n## Bank ({len(items)} kinds, as of {ago(bank.get('t'))})")
+            w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')})" for b in items))
+        else:
+            w("\nBank: not seen yet (recorded when the player opens their bank).")
     print("\n".join(out))
 
 
@@ -561,11 +568,13 @@ def cmd_loot(args):
         for slot in SLOT_MAP.get(x.get("slot") or "", []):
             e = equipped.get(slot)
             print(f"    vs {slot}: " + (fmt_item(e) if e else "(empty)"))
-    bag_gear = [b for b in s.get("bags") or [] if b.get("slot")]
-    if bag_gear:
-        print("\n## Unequipped gear in bags")
-        for b in bag_gear:
-            print(f"- {fmt_item(b)}")
+    bank = c.get("bank") or {}
+    for label, items in (("bags", s.get("bags")), (f"bank (as of {ago(bank.get('t'))})", bank.get("items"))):
+        gear = [b for b in items or [] if b.get("slot")]
+        if gear:
+            print(f"\n## Unequipped gear in {label}")
+            for b in gear:
+                print(f"- {fmt_item(b)}")
     p = chat_log_path()
     if p:
         since = s.get("t", 0)

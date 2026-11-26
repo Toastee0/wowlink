@@ -143,12 +143,39 @@ local function SkillRank(name)
 	return 0
 end
 
-local function ReadBags()
+-- Container IDs differ by client: classic bank = -1 plus bags 5-11; modern clients name them
+-- in Enum.BagIndex (bank tabs, reagent bag). Collect whatever this client defines.
+local function BagIDs(which)
+	local ids, seen = {}, {}
+	local function add(id) if id and not seen[id] then seen[id] = true; ids[#ids + 1] = id end end
+	local E = Enum and Enum.BagIndex
+	if which == "bags" then
+		for b = 0, 4 do add(b) end
+		if E then add(E.ReagentBag) end
+	else
+		add(E and E.Bank or -1)
+		local tabs = false
+		if E then
+			for k = 1, 8 do
+				if E["CharacterBankTab_" .. k] then add(E["CharacterBankTab_" .. k]); tabs = true end
+				if E["BankBag_" .. k] then add(E["BankBag_" .. k]); tabs = true end
+			end
+		end
+		if not tabs then
+			local first = (NUM_BAG_SLOTS or 4) + 1
+			for b = first, first + (NUM_BANKBAGSLOTS or 7) - 1 do add(b) end
+		end
+	end
+	return ids
+end
+
+local function ReadContainers(bagIDs)
 	local counts, names, order = {}, {}, {}
 	local numSlots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
 	if not numSlots then return {} end
-	for bag = 0, 4 do
-		for slot = 1, (numSlots(bag) or 0) do
+	for _, bag in ipairs(bagIDs) do
+		local okN, n = pcall(numSlots, bag)
+		for slot = 1, (okN and n or 0) do
 			local id, count, link
 			if C_Container and C_Container.GetContainerItemInfo then
 				local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -172,6 +199,15 @@ local function ReadBags()
 		out[#out + 1] = d
 	end
 	return out
+end
+
+local function ReadBags() return ReadContainers(BagIDs("bags")) end
+
+-- The bank can only be read while it's open, so keep the last copy we saw.
+function WL:SaveBank()
+	if not (self.char and self.bankOpen) then return end
+	local ok, items = pcall(ReadContainers, BagIDs("bank"))
+	if ok and items then self.char.bank = { t = time(), items = items } end
 end
 
 local SLOT_NAMES = { "Head", "Neck", "Shoulder", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrist", "Hands",
@@ -471,7 +507,8 @@ local ev = CreateFrame("Frame")
 local function Reg(e) pcall(ev.RegisterEvent, ev, e) end
 for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "QUEST_LOG_UPDATE", "QUEST_TURNED_IN",
 	"QUEST_ACCEPTED", "PLAYER_LEVEL_UP", "BAG_UPDATE_DELAYED", "PLAYER_MONEY", "ZONE_CHANGED_NEW_AREA",
-	"ZONE_CHANGED", "SKILL_LINES_CHANGED", "PLAYER_DEAD", "CHAT_MSG_LOOT" }) do Reg(e) end
+	"ZONE_CHANGED", "SKILL_LINES_CHANGED", "PLAYER_DEAD", "CHAT_MSG_LOOT", "BANKFRAME_OPENED",
+	"BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED", "PLAYERBANKBAGSLOTS_CHANGED" }) do Reg(e) end
 
 ev:SetScript("OnEvent", function(_, event, a1, a2)
 	if event == "ADDON_LOADED" then
@@ -512,6 +549,17 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 	if event == "PLAYER_LOGOUT" then
 		pcall(WL.Snapshot, WL)
 		return
+	elseif event == "BANKFRAME_OPENED" then
+		WL.bankOpen = true
+		C_Timer.After(0.3, function() WL:SaveBank() end) -- give the client a moment to fill the bank
+		return
+	elseif event == "BANKFRAME_CLOSED" then
+		WL:SaveBank()
+		WL.bankOpen = false
+		return
+	elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED" then
+		WL:SaveBank()
+		return
 	elseif event == "CHAT_MSG_LOOT" then
 		pcall(WL.RecordLoot, WL, a1)
 	elseif event == "PLAYER_LEVEL_UP" then
@@ -526,6 +574,8 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 	elseif event == "ZONE_CHANGED_NEW_AREA" then
 		local z = GetZoneText()
 		if z and z ~= "" and z ~= WL.lastZone then WL.lastZone = z; WL:Log("Entered " .. z) end
+	elseif event == "BAG_UPDATE_DELAYED" and WL.bankOpen then
+		WL:SaveBank() -- items moved between bags and bank bags
 	end
 	WL:Refresh()
 end)

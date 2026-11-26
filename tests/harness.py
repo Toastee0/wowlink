@@ -103,7 +103,7 @@ C_Item = {
   end,
 }
 C_Container = {
-  GetContainerNumSlots = function(bag) return bag == 0 and 2 or 0 end,
+  GetContainerNumSlots = function(bag) if bag == 0 then return 2 elseif bag == -1 then return 1 end return 0 end,
   GetContainerItemInfo = function(bag, slot)
     if slot == 1 then return { itemID = 2589, stackCount = STATE.items[2589], hyperlink = "|cffffffff|Hitem:2589::|h[Linen Cloth]|h|r" } end
   end,
@@ -269,6 +269,14 @@ def main():
     assert "You are my World of Warcraft coach" in report and "=== WOWLINK REPORT ===" in report
     assert "Chausses of Westfall #6087" in report and "Agility 5" in report and "|" not in report, report[-800:]
     assert "Classic-era rules" in report
+    assert "Bank: not seen yet" in report
+    assert g.WowLinkDB.chars["Testchar-Realm"].bank is None, "bank must not be read while closed"
+    g.FIRE("BANKFRAME_OPENED")
+    g.FIRE("BANKFRAME_CLOSED")
+    g.WowLink.char.exportedOnce = False
+    g.SlashCmdList.WOWLINK("copy")
+    report = g.WowLinkTextWindow.edit.text
+    assert "Other items in bank (as of" in report and "Linen Cloth x10" in report, report[-600:]
     g.SlashCmdList.WOWLINK("copy")
     assert "=== WOWLINK UPDATE ===" in g.WowLinkTextWindow.edit.text, "second copy defaults to short update"
     g.SlashCmdList.WOWLINK("paste")
@@ -305,6 +313,8 @@ def main():
     assert "level 16" in out and "Redridge - hit 16" in out and "NEW" in out and "[>] current" in out
     out = run_wl(["loot"])
     assert "Chausses of Westfall" in out and "Agility 5" in out and "vs Legs" in out
+    out = run_wl(["status", "--full"])
+    assert "## Bank (1 kinds" in out
     run_wl(["done", "12", "65", "999"])
     prompt = run_wl(["prompt"])
     assert prompt.strip() in (ROOT / "PROMPT.md").read_text(encoding="utf-8"), "PROMPT.md is out of date: python tools/wl.py prompt"
