@@ -39,6 +39,8 @@ Rules for the JSON:
 - "waypoint": uiMapID with 0-100 coordinates. Leave it out unless you're sure.
 - Only use quest and item IDs shown in my report or ones you are certain of. A wrong ID makes a
   step that never ticks.
+- Same for directions: don't state travel routes (zeppelins, boats, flight paths), NPC or building
+  locations as fact unless you're sure for my game version. Say you're unsure, or ask me.
 - "verdicts" (optional): item ID -> one line, max 90 chars, shown in that item's tooltip. Start
   with Upgrade:, Equip:, Keep:, Vendor: or Skip:. Judge gear against what I have equipped, my
   class and my goals, and say why in the chat.
