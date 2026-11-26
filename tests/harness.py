@@ -139,6 +139,10 @@ TAXI = { { "Booty Bay, Stranglethorn", "REACHABLE" }, { "Grom'gol, Stranglethorn
 NumTaxiNodes = function() return #TAXI end
 TaxiNodeName = function(i) return TAXI[i][1] end
 TaxiNodeGetType = function(i) return TAXI[i][2] end
+Auctionator = { API = { v1 = {
+  GetAuctionPriceByItemLink = function(caller, link) assert(caller == "WowLink"); if link:find("item:6087") then return 15000 end end,
+  GetAuctionPriceByItemID = function(caller, id) if id == 2589 then return 35 end end,
+  GetAuctionAgeByItemID = function(caller, id) if id == 6087 then return 2 end return 0 end } } }
 LoggingChat = function(on) CHATLOG = on end
 LoggingCombat = function(on) COMBATLOG = on end
 SlashCmdList = {}
@@ -278,7 +282,8 @@ def main():
     assert "You are my World of Warcraft coach" in report and "=== WOWLINK REPORT ===" in report
     assert "Chausses of Westfall #6087" in report and "Agility 5" in report and "|" not in report, report[-800:]
     assert "Classic-era rules" in report
-    assert "Chausses of Westfall #6087 (Leather LEGS, ilvl 21, req 16) [Bind on Equip, tradeable] [vendor 12s 34c]" in report, report
+    assert "Chausses of Westfall #6087 (Leather LEGS, ilvl 21, req 16) [Bind on Equip, tradeable] [vendor 12s 34c] [AH ~1g 50s, seen 2d ago]" in report, report
+    assert "Linen Cloth x4 (AH ~35c each)" in report or "Linen Cloth x10 (AH ~35c each)" in report, report
     assert "Bank: not seen yet" in report
     assert g.WowLinkDB.chars["Testchar-Realm"].bank is None, "bank must not be read while closed"
     g.FIRE("BANKFRAME_OPENED")
@@ -358,7 +363,7 @@ def main():
     assert "level 16" in out and "Redridge - hit 16" in out and "NEW" in out and "[>] current" in out
     out = run_wl(["loot"])
     assert "Chausses of Westfall" in out and "Agility 5" in out and "vs Legs" in out
-    assert "Bind on Equip, tradeable, vendor 12s 34c" in out, out
+    assert "Bind on Equip, tradeable, vendor 12s 34c, AH ~1g 50s 0c seen 2d ago" in out, out
     out = run_wl(["status", "--full"])
     assert "## Bank (1 kinds" in out
     assert "## Flight paths on Eastern Kingdoms" in out and "Stonard, Swamp of Sorrows" in out

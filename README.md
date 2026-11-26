@@ -51,6 +51,10 @@ once into a ChatGPT Project (or custom GPT) or a Claude Project's instructions, 
 | `/wl tomtom` | With [TomTom](https://www.curseforge.com/wow/addons/tomtom) installed, waypoints use its GPS-style arrow (on by default). This switches between TomTom and the game's own map pin. |
 | `/wl` | Show or hide the panel. `/wl lock`, `/wl unlock`, `/wl reset` for its position. |
 
+**Works with (optional):** [TomTom](https://www.curseforge.com/wow/addons/tomtom) for a GPS-style arrow to each step, and
+[Auctionator](https://www.curseforge.com/wow/addons/auctionator): its Auction House prices go into your reports,
+so your AI can tell you what to list, for how much, and what to just vendor.
+
 On the panel: **click** a step to tick or untick it, **right-click** it for its waypoint,
 **hover** it for details, **drag** the title to move it, **click** the title to collapse it.
 

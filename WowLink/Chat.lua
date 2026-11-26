@@ -24,6 +24,15 @@ local function Coins(c)
 	return ("%dg %ds %dc"):format(math.floor(c / 10000), math.floor(c / 100) % 100, c % 100)
 end
 
+local function Short(c) -- "1g 2s", "35s", "12c"
+	return (Coins(c):gsub(" 0c$", ""):gsub("^0g ", ""):gsub("^0s ", ""))
+end
+
+local function Age(days)
+	if not days then return "" end
+	return days == 0 and ", seen today" or (", seen " .. days .. "d ago")
+end
+
 local function Stats(st)
 	if type(st) ~= "table" then return "" end
 	local parts = {}
@@ -44,7 +53,8 @@ local function Item(d)
 	if d.bound == true then s = s .. " [soulbound]"
 	elseif d.bound == "some" then s = s .. " [some soulbound]"
 	elseif d.bound == false then s = s .. (d.bind == "BoE" and " [Bind on Equip, tradeable]" or " [tradeable]") end
-	if d.vendor and d.bound ~= nil then s = s .. " [vendor " .. Coins(d.vendor):gsub(" 0c$", ""):gsub("^0g ", "") .. "]" end
+	if d.vendor and d.bound ~= nil then s = s .. " [vendor " .. Short(d.vendor) .. "]" end
+	if d.ah then s = s .. " [AH ~" .. Short(d.ah) .. Age(d.ahAge) .. "]" end
 	local st = Stats(d.stats)
 	if st ~= "" then s = s .. ": " .. st end
 	return s
@@ -296,6 +306,8 @@ Rules for the JSON:
   class and my goals, and say why in the chat.
 - Items I don't need: if the report marks one tradeable (especially Bind on Equip greens and blues),
   say Sell: and suggest the Auction House; Vendor: is for soulbound items and junk.
+- "AH ~" prices come from my Auctionator scans: compare with the vendor price, suggest a listing
+  price, and treat old ("seen 9d ago") prices as rough.
 - Later I'll send short "WOWLINK UPDATE" reports in this same chat; use them to check my progress.
 ]]
 WL.PROMPT = PROMPT
@@ -359,7 +371,10 @@ function WL:ExportText(full)
 		local gear, other = {}, {}
 		for _, b in ipairs(items or {}) do
 			if b.slot then gear[#gear + 1] = b
-			elseif b.name then other[#other + 1] = b.name .. ((b.n or 1) > 1 and (" x" .. b.n) or "") end
+			elseif b.name then
+				other[#other + 1] = b.name .. ((b.n or 1) > 1 and (" x" .. b.n) or "")
+					.. (b.ah and (" (AH ~" .. Short(b.ah) .. " each)") or "")
+			end
 		end
 		if #gear > 0 then
 			w(""); w("Unequipped gear in " .. label .. ":")

@@ -471,12 +471,12 @@ def cmd_status(args):
             w("\n## Other skills: " + ", ".join(f"{x['name']} {x.get('rank')}/{x.get('max')}" for x in other))
         bags = s.get("bags") or []
         w(f"\n## Bags ({len(bags)} kinds)")
-        w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')})" for b in bags))
+        w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')}{', AH ~' + coins(b['ah']) if b.get('ah') else ''})" for b in bags))
         bank = c.get("bank") or {}
         if bank:
             items = bank.get("items") or []
             w(f"\n## Bank ({len(items)} kinds, as of {ago(bank.get('t'))})")
-            w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')})" for b in items))
+            w("; ".join(f"{b.get('name')} x{b.get('n')} (#{b.get('id')}{', AH ~' + coins(b['ah']) if b.get('ah') else ''})" for b in items))
         else:
             w("\nBank: not seen yet (recorded when the player opens their bank).")
     print("\n".join(out))
@@ -542,6 +542,9 @@ def fmt_item(x):
         trade = ", Bind on Equip, tradeable" if x.get("bind") == "BoE" else ", tradeable"
     if x.get("vendor") and b is not None:
         trade += f", vendor {coins(x['vendor'])}"
+    if x.get("ah"):
+        age = x.get("ahAge")
+        trade += f", AH ~{coins(x['ah'])}" + ("" if age is None else (" seen today" if age == 0 else f" seen {age}d ago"))
     return (f"{x.get('name')} #{x.get('id')} [{QUALITY.get(x.get('q'), '?')} {x.get('sub') or x.get('type') or ''}"
             f" {x.get('slot') or ''}, ilvl {x.get('ilvl')}, req {x.get('req')}{trade}]: {fmt_stats(x.get('stats'))}")
 

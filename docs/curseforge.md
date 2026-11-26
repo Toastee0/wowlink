@@ -32,6 +32,8 @@ Your goal appears like a quest in the tracker:
   The arrow moves on as you finish steps and clears when the goal is done.
 - **Item verdicts in tooltips**: your AI can tag items in your bags, like *"Coach: Upgrade: replaces your belt"*
   or *"Coach: Vendor: weaker than what you wear"*.
+- **Selling advice**: your reports say what's soulbound and what's still tradeable, with vendor prices, and
+  Auction House prices if you use **Auctionator**. Your AI can tell you what to list and what to vendor.
 - **Short updates**: click [copy] again later and paste it into the same chat. Your AI sees what you've done since.
 
 No extra software and no account linking: just the addon and the AI chat you already use.

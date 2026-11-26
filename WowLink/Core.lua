@@ -171,6 +171,30 @@ local function BagIDs(which)
 	return ids
 end
 
+-- Auction House prices from Auctionator (optional addon), via its public API.
+-- Returns copper and the age of that price in days, or nil.
+local function AHPrice(link, id)
+	local api = Auctionator and Auctionator.API and Auctionator.API.v1
+	if not api then return nil end
+	local price
+	if link and api.GetAuctionPriceByItemLink then
+		local ok, v = pcall(api.GetAuctionPriceByItemLink, "WowLink", link)
+		if ok then price = v end
+	end
+	if not price and id and api.GetAuctionPriceByItemID then
+		local ok, v = pcall(api.GetAuctionPriceByItemID, "WowLink", id)
+		if ok then price = v end
+	end
+	if type(price) ~= "number" or price <= 0 then return nil end
+	local age
+	if id and api.GetAuctionAgeByItemID then
+		local ok, v = pcall(api.GetAuctionAgeByItemID, "WowLink", id)
+		if ok and type(v) == "number" then age = v end
+	end
+	return price, age
+end
+WL.AHPrice = AHPrice
+
 local function ReadContainers(bagIDs)
 	local counts, names, order, bound = {}, {}, {}, {}
 	local numSlots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
@@ -206,6 +230,7 @@ local function ReadContainers(bagIDs)
 		local d = names[id] and ItemDetail(names[id]) or { id = id }
 		d.n = counts[id]
 		if bound[id] then d.bound = bound[id].yes and (bound[id].no and "some" or true) or false end
+		if d.bound ~= true then d.ah, d.ahAge = AHPrice(names[id], id) end -- only matters if it can be sold
 		if not d.slot then d.stats, d.req, d.sub = nil, nil, nil end -- keep non-gear entries small
 		out[#out + 1] = d
 	end
@@ -396,6 +421,7 @@ function WL:RecordLoot(msg)
 	d.n = tonumber(msg:match("|rx(%d+)") or msg:match("x(%d+)%.?$")) or 1
 	d.t = time()
 	d.zone = GetZoneText()
+	d.ah, d.ahAge = AHPrice(link, d.id)
 	local c = self.char
 	c.loot = c.loot or {}
 	table.insert(c.loot, d)

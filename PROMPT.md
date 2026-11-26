@@ -47,4 +47,6 @@ Rules for the JSON:
   class and my goals, and say why in the chat.
 - Items I don't need: if the report marks one tradeable (especially Bind on Equip greens and blues),
   say Sell: and suggest the Auction House; Vendor: is for soulbound items and junk.
+- "AH ~" prices come from my Auctionator scans: compare with the vendor price, suggest a listing
+  price, and treat old ("seen 9d ago") prices as rough.
 - Later I'll send short "WOWLINK UPDATE" reports in this same chat; use them to check my progress.

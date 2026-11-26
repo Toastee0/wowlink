@@ -35,7 +35,7 @@ in game like a quest in the objective tracker. You are a coach, not a bot.
 | `done ID...` | Whether quests are turned in, in the log, or neither. |
 | `goal CHAR FILE` or `-` for stdin | Set a new goal. Validates, archives the old one to `goals/history/`, rewrites `Inbox.lua`. `--keep-id` revises in place and keeps progress; use it only when step order is unchanged or steps are appended. |
 | `show CHAR` / `clear CHAR` | Print or remove the goal. |
-| `verdict CHAR ITEMID "text"` | One line (90 chars max) shown in that item's tooltip in game. Start with `Upgrade:`, `Equip:`, `Keep:`, `Sell:`, `Vendor:` or `Skip:`; the color follows the first word. `--clear` removes it. Items `loot` marks tradeable (Bind on Equip greens and blues especially) get `Sell:` and a pointer to the Auction House; `Vendor:` is for soulbound items and junk. |
+| `verdict CHAR ITEMID "text"` | One line (90 chars max) shown in that item's tooltip in game. Start with `Upgrade:`, `Equip:`, `Keep:`, `Sell:`, `Vendor:` or `Skip:`; the color follows the first word. `--clear` removes it. Items `loot` marks tradeable (Bind on Equip greens and blues especially) get `Sell:` and a pointer to the Auction House; `Vendor:` is for soulbound items and junk. With Auctionator installed, items carry `AH ~price` (and how many days ago it was seen): suggest a listing price, and treat old prices as rough. |
 
 ## Goal JSON
 
