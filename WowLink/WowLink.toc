@@ -2,7 +2,7 @@
 ## Title: WowLink
 ## Notes: Your AI coach sets one goal at a time; WowLink shows it like a quest. Guidance only: it displays and records, it never plays for you.
 ## Author: Toastee0
-## Version: 1.2.0
+## Version: 1.2.1
 ## X-Curse-Project-ID: 1833314
 ## SavedVariables: WowLinkDB
 ## OptionalDeps: TomTom, Auctionator
