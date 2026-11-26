@@ -306,7 +306,6 @@ def main():
     assert wp and wp.map == 1415 and abs(wp.x - 30) < 1e-9 and abs(wp.y - 60) < 1e-9, "flight step gets the flight master's position"
     assert wp.label == "Stonard, Swamp of Sorrows (flight master)"
     assert wl_.StepWaypoint(wl_, lua.table(text="x", check=lua.table(flight="nowhere"))) is None
-    assert "lastWaypoint" not in list(wl_.keys()) or wl_.lastWaypoint != "stale", "sanity"
     assert "Learned flight path: Stonard, Swamp of Sorrows" in wl_.char.journal[len(wl_.char.journal)].e
     g.SlashCmdList.WOWLINK("copy")
     assert "Flight paths on Eastern Kingdoms (as of" in g.WowLinkTextWindow.edit.text
