@@ -450,6 +450,8 @@ def cmd_status(args):
     for t in s.get("talents") or []:
         parts = ", ".join(f"{x.get('name')} {x.get('rank')}/{x.get('max')}" for x in t.get("list") or [])
         w(f"Talents, {t.get('name')} {t.get('spent')}" + (f": {parts}" if parts else ""))
+        if full and t.get("open"):
+            w("    not taken: " + ", ".join(f"{x.get('name')} (0/{x.get('max')}, row {x.get('row')})" for x in t["open"]))
     eq = s.get("equipment") or []
     if eq:
         w("\n## Equipped (ilvl)")

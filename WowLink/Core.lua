@@ -502,7 +502,7 @@ local function ReadTalentsTraits()
 				if x < minX then minX = x end
 				if x > maxX then maxX = x end
 				local rank = n.ranksPurchased or n.currentRank or 0
-				if rank > 0 then
+				do
 					local entry = (n.activeEntry and n.activeEntry.entryID) or (n.entryIDs and n.entryIDs[1])
 					local name
 					if entry and T.GetEntryInfo and T.GetDefinitionInfo then
@@ -530,11 +530,22 @@ local function ReadTalentsTraits()
 	for i = 1, nTrees do out[i] = { name = specs[i] or ("Tree " .. i .. " (left to right)"), spent = 0, list = {} } end
 	local width = (maxX > minX) and (maxX - minX) or 1
 	table.sort(nodes, function(a, b) if a.y ~= b.y then return (a.y or 0) < (b.y or 0) end return a.x < b.x end)
+	-- row number (1 = top) from distinct vertical positions
+	local ys, rowOf = {}, {}
+	for _, n in ipairs(nodes) do if n.y and not rowOf[n.y] then rowOf[n.y] = true; ys[#ys + 1] = n.y end end
+	table.sort(ys)
+	for i, y in ipairs(ys) do rowOf[y] = i end
 	for _, n in ipairs(nodes) do
 		local i = math.min(nTrees, math.floor((n.x - minX) / width * nTrees) + 1)
 		local t = out[i]
-		t.spent = t.spent + n.rank
-		t.list[#t.list + 1] = { name = n.name, rank = n.rank, max = n.max }
+		local row = n.y and rowOf[n.y]
+		if n.rank > 0 then
+			t.spent = t.spent + n.rank
+			t.list[#t.list + 1] = { name = n.name, rank = n.rank, max = n.max, row = row }
+		else
+			t.open = t.open or {}
+			t.open[#t.open + 1] = { name = n.name, max = n.max, row = row }
+		end
 	end
 	return out
 end

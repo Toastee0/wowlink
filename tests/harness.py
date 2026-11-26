@@ -468,6 +468,7 @@ def main():
     tal = g2.WowLinkDB.chars["Testchar-Realm"].snapshot.talents
     assert tal and tal[1].name == "Arms" and tal[1].spent == 3 and tal[1].list[1].name == "Mortal Strike", "trait talents"
     assert tal[2].spent == 0 and tal[3].name == "Protection" and tal[3].list[1].name == "Shield Specialization" and tal[3].list[1].max == 5
+    assert tal[2].open[1].max == 5 and tal[2].open[1].row == 1 and tal[3].list[1].row == 2, "untaken talents and rows"
     print("\nALL OK")
 
 

@@ -366,6 +366,11 @@ function WL:ExportText(full)
 			local parts = {}
 			for _, x in ipairs(t.list or {}) do parts[#parts + 1] = ("%s %s/%s"):format(x.name, tostring(x.rank), tostring(x.max)) end
 			w(("- %s %d%s"):format(t.name or "?", t.spent or 0, #parts > 0 and (": " .. table.concat(parts, ", ")) or ""))
+			if t.open and #t.open > 0 then
+				local o = {}
+				for _, x in ipairs(t.open) do o[#o + 1] = ("%s 0/%s r%s"):format(x.name, tostring(x.max), tostring(x.row or "?")) end
+				w("    not taken (r = row): " .. table.concat(o, ", "))
+			end
 		end
 	end
 	w(""); w("Equipped:")
