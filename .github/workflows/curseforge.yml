@@ -1,0 +1,34 @@
+name: Upload to CurseForge
+
+# Runs when a GitHub release is published. Does nothing until the TOC has an
+# X-Curse-Project-ID and the repo has a CF_API_KEY secret.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload (e.g. v1.1.0)"
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - name: Build addon zip
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          git archive --format=zip --prefix=WowLink/ -o "WowLink-addon-${TAG#v}.zip" HEAD:WowLink
+          echo "ZIP=WowLink-addon-${TAG#v}.zip" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Write changelog
+        env:
+          BODY: ${{ github.event.release.body }}
+        run: printf '%s\n' "${BODY:-WowLink $TAG}" > changelog.md
+      - name: Upload
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+        run: python3 tools/cf_upload.py "$ZIP" --version "$TAG" --changelog changelog.md
