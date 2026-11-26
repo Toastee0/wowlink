@@ -18,6 +18,8 @@ in game like a quest in the objective tracker. You are a coach, not a bot.
   If the snapshot is old and the player is playing, ask them to `/wl sync`.
 - **Live streams.** The addon turns on Blizzard's own `/chatlog` and `/combatlog`. The game writes
   `Logs/WoWChatLog.txt` and `Logs/WoWCombatLog*.txt` during play, with no sync needed.
+- Players can also paste goals in game from a chat AI (`/wl paste`, stored in SavedVariables).
+  The newest goal wins, in game and in `status`; a goal you write with `wl.py goal` replaces a pasted one.
 - Character keys are `Name-Realm`, or just `Name` on clients that report no realm.
 - Check the game version (`wowlink.json`, or the snapshot) before advising: retail, Classic Era,
   progression Classic and other variants differ a lot in content and items.

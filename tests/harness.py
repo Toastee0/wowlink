@@ -34,16 +34,24 @@ local function frame(name)
   f.IsShown = function(self) return self._shown end
   f.GetPoint = function() return "RIGHT", nil, "RIGHT", -60, 60 end
   f.CreateTexture = function() return mock("tex") end
+  f.SetText = function(self, t) self.text = t end
+  f.GetText = function(self) return self.text or "" end
   f.CreateFontString = function()
     local fs = mock("fs")
     fs.SetText = function(self, t) self.text = t end
     fs.GetStringHeight = function(self) return 12 end
+    fs.GetStringWidth = function(self) return 30 end
     return fs
   end
   if name then _G[name] = f end
   return f
 end
 EVENTS = {}
+UISpecialFrames = {}
+tinsert = table.insert
+ChatFontNormal = {}
+GetBuildInfo = function() return "1.60.1", "71139", "Nov 1 2026", 16001 end
+date = os.date
 CreateFrame = function(_, name) return frame(name) end
 UIParent = frame("UIParent")
 GameTooltip = frame("GameTooltip")
@@ -222,7 +230,7 @@ def main():
     lua = lupa.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(STUBS)
     g = lua.globals()
-    for name in ("Inbox.lua", "Core.lua", "Tracker.lua"):
+    for name in ("Inbox.lua", "Core.lua", "Tracker.lua", "Chat.lua"):
         lua.execute((proj / "WowLink" / name).read_text(encoding="utf-8"))
     g.FIRE("ADDON_LOADED", "WowLink")
     g.FIRE("PLAYER_LOGIN")
@@ -254,6 +262,37 @@ def main():
     assert lines and lines[0].startswith("Coach: Upgrade"), lines
     g.STATE.level = 14
     g.FIRE("PLAYER_LEVEL_UP", 14)
+
+    # --- chat-AI path: /wl copy builds a report, /wl paste loads a reply, no files involved
+    g.SlashCmdList.WOWLINK("copy")
+    report = g.WowLinkTextWindow.edit.text
+    assert "You are my World of Warcraft coach" in report and "=== WOWLINK REPORT ===" in report
+    assert "Chausses of Westfall #6087" in report and "Agility 5" in report and "|" not in report, report[-800:]
+    assert "Classic-era rules" in report
+    g.SlashCmdList.WOWLINK("copy")
+    assert "=== WOWLINK UPDATE ===" in g.WowLinkTextWindow.edit.text, "second copy defaults to short update"
+    g.SlashCmdList.WOWLINK("paste")
+    win = g.WowLinkTextWindow
+    win.edit.text = "this has no json"
+    win.b2._scripts["OnClick"]()
+    assert "Couldn't find the goal" in win.status.text
+    reply = ("Great, here’s the plan:\n\n```json\n"
+             '{"goal": {"title": "Redridge \u2014 hit 16", "summary": "Go.", "steps": ['
+             '{"text": "Reach level 16", "check": {"level": 16}}, "Train at Stormwind", '
+             '{"text": "Go there", "waypoint": {"map": 1433, "x": 0.3, "y": 0.45}}], '
+             '"tips": ["Bring food"]}, "verdicts": {"4680": "Vendor: your new drop is better"}}\n```\nHave fun!')
+    win.edit.text = reply
+    win.b2._scripts["OnClick"]()
+    wl = g.WowLink
+    assert wl.goal.title == "Redridge - hit 16", wl.goal.title
+    assert wl.goal.steps[2].text == "Train at Stormwind" and abs(wl.goal.steps[3].waypoint.x - 30) < 1e-9
+    assert wl.goal.id == 2 and wl.current == 1
+    lines.clear()
+    g.TOOLTIP_FN(tt, lua.table(id=4680))
+    assert lines and lines[0] == "Coach: Vendor: your new drop is better", lines
+    g.STATE.level = 16
+    g.FIRE("PLAYER_LEVEL_UP", 16)
+    assert wl.char.goalState.done[1] and wl.current == 2
     g.SlashCmdList.WOWLINK("sync")
     assert g.RELOADED
     g.FIRE("PLAYER_LOGOUT")
@@ -263,11 +302,12 @@ def main():
         "11/26 23:59:58.000  You receive loot: [Linen Cloth]x2.\n", encoding="utf-8")
 
     out = run_wl(["status"])
-    assert "level 14" in out and "Finish Westfall" in out and "NEW" in out and "[>] current" in out
-    assert "ticked by player" in out
+    assert "level 16" in out and "Redridge - hit 16" in out and "NEW" in out and "[>] current" in out
     out = run_wl(["loot"])
     assert "Chausses of Westfall" in out and "Agility 5" in out and "vs Legs" in out
     run_wl(["done", "12", "65", "999"])
+    prompt = run_wl(["prompt"])
+    assert prompt.strip() in (ROOT / "PROMPT.md").read_text(encoding="utf-8"), "PROMPT.md is out of date: python tools/wl.py prompt"
     out = run_wl(["brief"])
     assert "You are my World of Warcraft coach" in out and "Chausses of Westfall" in out
     run_wl(["chat", "5"])
@@ -276,14 +316,18 @@ def main():
     lua2 = lupa.LuaRuntime(unpack_returned_tuples=True)
     lua2.execute(STUBS)
     lua2.execute((sv_dir / "WowLink.lua").read_text(encoding="utf-8"))
-    for name in ("Inbox.lua", "Core.lua", "Tracker.lua"):
+    for name in ("Inbox.lua", "Core.lua", "Tracker.lua", "Chat.lua"):
         lua2.execute((proj / "WowLink" / name).read_text(encoding="utf-8"))
     g2 = lua2.globals()
-    g2.STATE.level, g2.STATE["items"][2589], g2.STATE.completed[12] = 14, 10, True
+    g2.STATE.level, g2.STATE["items"][2589], g2.STATE.completed[12] = 16, 10, True
     g2.FIRE("ADDON_LOADED", "WowLink")
     g2.FIRE("PLAYER_LOGIN")
     st2 = g2.WowLinkDB.chars["Testchar-Realm"].goalState
-    assert st2.done[3] and st2.done[4] and g2.WowLink.current == 5, "progress survives reload"
+    assert g2.WowLink.goal.title == "Redridge - hit 16" and st2.done[1] and g2.WowLink.current == 2, "pasted goal and progress survive reload"
+    lines2 = []
+    g2.GameTooltip.AddLine = lambda self, t, *a: lines2.append(t)
+    g2.TOOLTIP_FN(g2.GameTooltip, lua2.table(id=4680))
+    assert lines2 == ["Coach: Vendor: your new drop is better"], lines2
     print("\nALL OK")
 
 

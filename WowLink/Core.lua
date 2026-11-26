@@ -303,20 +303,28 @@ end
 -- Goal
 ------------------------------------------------------------------------
 
-function WL:Goal()
-	local inbox = _G.WowLink_Inbox
-	if type(inbox) ~= "table" or not self.key then return nil end
-	local g = inbox[self.key]
-	if not g then
-		local lkey, lname = self.key:lower(), (UnitName("player") or ""):lower()
-		for k, v in pairs(inbox) do
-			if type(k) == "string" then
-				local lk = k:lower()
-				if lk == lkey or lk == lname or lk:match("^[^-]+") == lname then g = v; break end
-			end
+-- Find this character's entry in a table keyed "Name-Realm" or "Name".
+function WL:MyEntry(t)
+	if type(t) ~= "table" or not self.key then return nil end
+	if t[self.key] then return t[self.key] end
+	local lkey, lname = self.key:lower(), (UnitName("player") or ""):lower()
+	for k, v in pairs(t) do
+		if type(k) == "string" then
+			local lk = k:lower()
+			if lk == lkey or lk == lname or lk:match("^[^-]+") == lname then return v end
 		end
 	end
-	if type(g) ~= "table" or type(g.steps) ~= "table" then return nil end
+end
+
+-- Two sources: Inbox.lua (written by tools/wl.py) and goals pasted in game (/wl paste).
+-- Whichever was set most recently wins.
+function WL:Goal()
+	local g = self:MyEntry(_G.WowLink_Inbox)
+	if type(g) ~= "table" or type(g.steps) ~= "table" then g = nil end
+	local imp = self.char and self.char.imported
+	if type(imp) == "table" and type(imp.steps) == "table" and (not g or (imp.updated or 0) >= (g.updated or 0)) then
+		return imp
+	end
 	return g
 end
 
@@ -492,7 +500,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 		WL:ApplyLogging()
 		if WL.InitUI then WL:InitUI() end
 		if not WL.goal then
-			Print("No goal yet for " .. WL.key .. ". Talk it over with your AI, then |cffffd100/wl sync|r.")
+			Print("No goal yet for " .. WL.key .. ". Type |cffffd100/wl copy|r to ask your AI for one.")
 		end
 		WL:Refresh(true)
 		return
@@ -524,9 +532,10 @@ end)
 ------------------------------------------------------------------------
 
 local function AddVerdict(tt, id)
-	local all = _G.WowLink_Items
-	local mine = type(all) == "table" and WL.key and all[WL.key]
-	local v = type(mine) == "table" and id and mine[id]
+	if not id then return end
+	local pasted = WL.char and WL.char.verdicts
+	local mine = WL:MyEntry(_G.WowLink_Items)
+	local v = (type(pasted) == "table" and pasted[id]) or (type(mine) == "table" and mine[id])
 	if type(v) ~= "string" then return end
 	local low = v:lower()
 	local r, g, b = 0.31, 0.76, 0.97
@@ -554,7 +563,9 @@ end
 ------------------------------------------------------------------------
 
 local HELP = {
-	"|cffffd100/wl sync|r - send progress to your AI and load new guidance (reloads UI)",
+	"|cffffd100/wl copy|r - copy your progress to paste into ChatGPT, Claude or any AI chat",
+	"|cffffd100/wl paste|r - paste the AI's reply to load its goal",
+	"|cffffd100/wl sync|r - for AI agents using tools/wl.py: save progress and load new guidance (reloads UI)",
 	"|cffffd100/wl note <text>|r - leave a note for your AI (|cffffd100/wl note|r lists, |cffffd100/wl note clear|r wipes)",
 	"|cffffd100/wl way|r - set the waypoint for the current step",
 	"|cffffd100/wl autoway|r - toggle setting waypoints automatically",
@@ -570,6 +581,10 @@ SlashCmdList.WOWLINK = function(msg)
 	local ui = WowLinkDB.ui
 	if cmd == "sync" then
 		WL:Sync()
+	elseif cmd == "copy" or cmd == "export" then
+		WL:OpenExport()
+	elseif cmd == "paste" or cmd == "import" then
+		WL:OpenImport()
 	elseif cmd == "note" then
 		if rest == "" then
 			if #WL.char.notes == 0 then Print("No notes.") end

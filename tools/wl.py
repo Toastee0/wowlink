@@ -2,6 +2,7 @@
 
   python tools/wl.py setup [PATH] [--copy]              find WoW, pick the game version, install the addon
   python tools/wl.py brief [CHAR]                       a paste-ready prompt + status for chat-only AIs
+  python tools/wl.py prompt                             just the coaching prompt (same as PROMPT.md)
   python tools/wl.py status [CHAR] [--full] [--json]   what the character is up to
   python tools/wl.py chars                              characters with snapshots
   python tools/wl.py done QUESTID... [--char CHAR]      has the character turned these in?
@@ -391,6 +392,9 @@ def cmd_status(args):
         w(f"Unspent talent points: {s['talentPoints']}")
 
     goal, st = load_goal(key), c.get("goalState") or {}
+    imp = c.get("imported")  # pasted in game with /wl paste; newest goal wins, as in the addon
+    if isinstance(imp, dict) and (not goal or imp.get("updated", 0) >= goal.get("updated", 0)):
+        goal = imp
     w("")
     if goal:
         synced = st.get("id") == goal.get("id")
@@ -936,39 +940,10 @@ def cmd_setup(args):
     print(f"Inbox ready ({n} goal(s)). Start the game, enable WowLink in the AddOns list, log in, and type /wl sync.")
 
 
-BRIEF = """You are my World of Warcraft coach, working through an addon called WowLink. I play; you advise.
-Guidance only: never suggest automation, botting, exploits, or anything against Blizzard's terms.
-
-Below is a snapshot of my character, made by the addon. Discuss it with me, then set ONE current
-goal of 3-8 concrete steps. The addon shows it in game like a quest in the objective tracker.
-When we've agreed on a goal (or I ask for one), put it in a single ```json block in this format:
-
-```json
-{
-  "title": "Short header, max 48 chars",
-  "summary": "Why this goal, one or two sentences.",
-  "steps": [
-    {"text": "What to do", "detail": "Optional tooltip: how and where.",
-     "check": {"quest": 12345},
-     "waypoint": {"map": 1436, "x": 56.3, "y": 47.5, "label": "NPC name"}},
-    {"text": "Reach level 20", "check": {"level": 20}}
-  ],
-  "tips": ["Optional short tips."],
-  "verdicts": {"6087": "Upgrade: replaces your current legs"}
-}
-```
-
-- "check" ticks a step automatically once ALL its conditions are true: level, quest (turned in),
-  questInLog (picked up or turned in), item + count, money (copper), skill + rank, zone (uiMapID or
-  zone name). Leave "check" out and I'll tick it myself.
-- "waypoint": uiMapID and 0-100 coordinates. Leave it out unless you're sure.
-- Only use quest and item IDs you can see below or are certain of. A wrong ID gives a step that never ticks.
-- "verdicts" (optional): item ID -> one line, max 90 chars, shown in that item's tooltip. Start
-  with Upgrade:, Equip:, Keep:, Vendor: or Skip:.
-- Judge gear drops against what I have equipped, my class/spec and my goals, and say why.
-
-I'll paste your reply into WowLink, which loads it on my next /wl sync. Here's my character:
-"""
+def coach_prompt():
+    """The coaching prompt; WowLink/Chat.lua is the single source (the in-game /wl copy uses it too)."""
+    src = (ADDON / "Chat.lua").read_text(encoding="utf-8")
+    return re.search(r"local PROMPT = \[\[\n?(.*?)\]\]", src, re.S).group(1)
 
 
 def cmd_brief(args):
@@ -979,14 +954,16 @@ def cmd_brief(args):
         cmd_status(args)
         print()
         cmd_loot(args)
-    print(BRIEF)
+    print(coach_prompt())
+    print("=== WOWLINK REPORT ===")
     print(buf.getvalue())
 
 
 COMMANDS = {"status": cmd_status, "chars": cmd_chars, "done": cmd_done, "goal": cmd_goal, "show": cmd_show,
             "clear": cmd_clear, "render": lambda a: print(f"Inbox.lua: {render_inbox()} goal(s)"),
             "check": cmd_check, "setup": cmd_setup, "install": cmd_setup, "loot": cmd_loot, "chat": cmd_chat,
-            "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief}
+            "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief,
+            "prompt": lambda a: print(coach_prompt(), end="")}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:

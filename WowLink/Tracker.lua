@@ -81,20 +81,40 @@ summary:SetTextColor(0.85, 0.85, 0.85)
 local tips = Block("GameFontHighlightSmall")
 tips:SetTextColor(0.55, 0.8, 1)
 
--- Footer: goal number, age, click to sync
-local footer = CreateFrame("Button", nil, f)
+-- Footer: goal number and age, then links: copy / paste (any AI chat) and sync (AI agents)
+local footer = CreateFrame("Frame", nil, f)
 footer:SetHeight(14)
 local footText = footer:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footText:SetPoint("LEFT", 0, 0)
 footText:SetJustifyH("LEFT")
-footer:SetScript("OnClick", function() WL:Sync() end)
-footer:SetScript("OnEnter", function(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:AddLine("Sync with your AI", 0.31, 0.76, 0.97)
-	GameTooltip:AddLine("Reloads the UI: saves your progress for your AI to read, and loads any new guidance it has written.", 0.8, 0.8, 0.8, true)
-	GameTooltip:Show()
-end)
-footer:SetScript("OnLeave", GameTooltip_Hide)
+
+local function FootLink(label, tipTitle, tipText, onClick)
+	local b = CreateFrame("Button", nil, footer)
+	local fs = b:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	fs:SetPoint("CENTER")
+	fs:SetText("|cff4fc3f7[" .. label .. "]|r")
+	b:SetSize(fs:GetStringWidth() + 4, 14)
+	b:SetScript("OnClick", onClick)
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		GameTooltip:AddLine(tipTitle, 0.31, 0.76, 0.97)
+		GameTooltip:AddLine(tipText, 0.8, 0.8, 0.8, true)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+	return b
+end
+
+local syncLink = FootLink("sync", "Sync (AI agents)",
+	"Reloads the UI: saves your progress for an AI agent using tools/wl.py, and loads any goal it wrote.",
+	function() WL:Sync() end)
+syncLink:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
+local pasteLink = FootLink("paste", "Paste the AI's reply",
+	"Paste your AI's reply here to load the goal it wrote.", function() WL:OpenImport() end)
+pasteLink:SetPoint("RIGHT", syncLink, "LEFT", -2, 0)
+local copyLink = FootLink("copy", "Copy for your AI",
+	"Copies a report of your progress to paste into ChatGPT, Claude or any AI chat.", function() WL:OpenExport() end)
+copyLink:SetPoint("RIGHT", pasteLink, "LEFT", -2, 0)
 
 -- Step rows
 local rows = {}
@@ -191,7 +211,7 @@ function WL:Render()
 	if not g then
 		title:SetText("WowLink")
 		tag:SetText("")
-		summary:SetText("No goal yet. Talk with your AI about what you want to do next, then click sync (or type /wl sync).")
+		summary:SetText("No goal yet. Click [copy] and paste it into ChatGPT, Claude or any AI chat. Talk it over, then click [paste] to load the goal it gives you.")
 		place(summary, summary:GetStringHeight() + 6)
 	else
 		title:SetText(g.title or "Goal")
@@ -226,7 +246,7 @@ function WL:Render()
 			end
 		end
 		if not self.current then
-			summary:SetText("|cff40ff40Goal complete!|r Tell your AI how it went, then sync for the next one.")
+			summary:SetText("|cff40ff40Goal complete!|r Tell your AI how it went ([copy]) and get the next one.")
 			place(summary, summary:GetStringHeight() + 6)
 		end
 		if g.tips and #g.tips > 0 and not collapsed then
@@ -238,8 +258,7 @@ function WL:Render()
 
 	if not ui.collapsed then
 		y = y - 2
-		footText:SetText((g and ("Goal #" .. tostring(g.id) .. ", set " .. Ago(g.updated) .. "  ") or "")
-			.. "|cff4fc3f7[sync]|r")
+		footText:SetText(g and ("Goal #" .. tostring(g.id) .. ", " .. Ago(g.updated)) or "")
 		footer:SetWidth(TEXT_W)
 		place(footer, 16)
 	end

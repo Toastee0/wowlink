@@ -1,93 +1,87 @@
 # WowLink
 
-**Talk your World of Warcraft progress over with an AI, and get one clear goal in your quest tracker.**
+**Talk your World of Warcraft progress over with ChatGPT, Claude or any AI, and get one clear goal in your quest tracker.**
 
-WowLink is an addon plus a small helper script. The addon records where your character is at:
-level, zone, quest log and objectives, gear with stats, recent loot, a journal of what happened,
-and notes you leave. Your AI reads that, talks it through with you, and writes back **one current
-goal**. The goal shows up in game styled like a quest, with steps that tick themselves off
-(level reached, quest turned in, items collected), waypoints, and tips. The AI can also put a
-short verdict on items, like *"Upgrade: replaces your belt"*, right in the item tooltip.
+WowLink is an addon. Click **[copy]** in game and paste the report into your AI chat: your
+level, zone, quest log and objectives, gear with stats, recent loot, and notes you left. Talk it
+through. When the AI gives you a goal, click **[paste]** and paste its reply. The goal shows up
+in game styled like a quest, with steps that tick themselves off (level reached, quest turned in,
+items collected), waypoints, and tips. The AI can also put a short verdict on items, like
+*"Upgrade: replaces your belt"*, right in the item tooltip.
+
+No extra software: just the addon and the AI account you already have.
 
 **Guidance only.** WowLink displays and records. It never presses a button, moves your
-character, or does anything for you. It uses the normal addon API and the game's own
-chat and combat logs.
-
-## What you need
-
-- World of Warcraft: retail or any Classic flavor. (So far it has been played on WoW Forever 1.60;
-  the code checks every API it uses, but [report problems](../../issues) on other versions.)
-- Python 3.9 or newer ([python.org](https://www.python.org/downloads/)). No extra packages.
-- An AI. Either kind works:
-  - **An agent that can run commands in a folder** (Claude Code, Codex CLI, Cursor, Aider, ...).
-    Best experience: it reads your progress itself and writes the goal for you.
-  - **A plain chat AI** (ChatGPT, Claude.ai, Gemini, ...). You copy a summary in and paste its reply back.
+character, or does anything for you.
 
 ## Install
 
-1. Download the latest `WowLink-x.y.z.zip` from [Releases](../../releases) and extract it
-   somewhere permanent, like `Documents\WowLink`. (Not inside the WoW folder.)
-2. In that folder, run:
-   ```
-   python tools/wl.py setup
-   ```
-   It finds your WoW install, asks which game version you play if you have several, and links
-   the addon into `Interface/AddOns`. If it can't find WoW, give it the folder:
-   `python tools/wl.py setup "D:\Games\World of Warcraft"`.
-   If linking isn't allowed on your system, add `--copy`.
-3. Start WoW, make sure **WowLink** is ticked in the AddOns list at character select (tick
-   *Load out of date AddOns* if it says out of date), log in, and type **`/wl sync`**.
+1. Download `WowLink-addon-x.y.z.zip` from [Releases](../../releases).
+2. Extract it into your AddOns folder, so you end up with `...\World of Warcraft\_retail_\Interface\AddOns\WowLink`.
+   Use the folder for the game version you play (`_retail_`, `_classic_era_`, `_classic_`, ...).
+3. Start WoW. At character select, open **AddOns** and make sure **WowLink** is ticked (tick
+   *Load out of date AddOns* if it says out of date).
 
-## Use it
+Works with retail and the Classic versions. So far it's been played on WoW Forever 1.60; if
+something breaks on your version, please [open an issue](../../issues).
 
-The rhythm is always the same: **`/wl sync` in game → talk to your AI → `/wl sync` again.**
-A sync is a UI reload. It saves your progress for the AI and loads whatever goal it wrote.
+## Use it with ChatGPT, Claude, Gemini, ...
 
-### With an agent (Claude Code, Codex, Cursor, ...)
+1. In game, click **[copy]** on the WowLink panel (or type `/wl copy`). The report is already
+   selected: press **Ctrl+C**.
+2. Paste it into a new chat with your AI and talk: *"What should I do next session?"*
+3. When you've agreed on a goal, the AI writes it as a ```` ```json ```` block. Copy the AI's reply
+   (the whole message is fine).
+4. In game, click **[paste]** (or `/wl paste`), press **Ctrl+V**, and click **Load goal**.
 
-Open the WowLink folder in your agent and just talk: *"Look at my character and help me plan
-the next session."* The agent picks up its instructions from `AGENTS.md` (Claude Code reads it via `CLAUDE.md`).
-It runs `tools/wl.py` to read your snapshot, loot and combat log, and writes the goal itself.
+Later, click **[copy]** again for a *Short update* and paste it into the same chat. The AI sees what
+you've done since and can adjust the goal or give you the next one.
 
-### With a chat AI
-
-1. Run `python tools/wl.py brief > brief.txt` and paste the contents of `brief.txt` into the chat.
-   It has the instructions and your character's current state.
-2. Talk it through. When you've settled on a goal, the AI replies with a ```` ```json ```` block.
-3. Save the whole reply (or just that block) as `reply.txt` and run
-   `python tools/wl.py goal YourCharacterName reply.txt`.
-4. `/wl sync` in game.
+**Tip:** to skip the long instructions at the start of each chat, paste [PROMPT.md](PROMPT.md)
+once into a ChatGPT Project (or custom GPT) or a Claude Project's instructions, and start your chats there.
 
 ## In game
 
-| Command | What it does |
+| | |
 |---|---|
-| `/wl sync` | Save progress for your AI and load new guidance (reloads the UI). The **[sync]** link on the panel does the same. |
-| `/wl note <text>` | Leave a note for your AI, like "stuck finding the Defias hideout". `/wl note` lists them, `/wl note clear` wipes them. |
-| `/wl way` | Set the waypoint for the current step. |
+| **[copy]** / `/wl copy` | Report of your progress to paste into your AI chat. Switch between *Full report* (new chat) and *Short update*. |
+| **[paste]** / `/wl paste` | Paste the AI's reply to load its goal and item verdicts. |
+| `/wl note <text>` | Leave a note for your AI, like "stuck finding the Defias hideout". It goes into the next report. `/wl note` lists notes, `/wl note clear` wipes them. |
+| `/wl way` | Set the waypoint for the current step. `/wl autoway` turns automatic waypoints off or on. |
 | `/wl` | Show or hide the panel. `/wl lock`, `/wl unlock`, `/wl reset` for its position. |
-| `/wl autoway` | Turn automatic waypoints off or on. |
-| `/wl chatlog`, `/wl combatlog` | Turn the game's chat or combat logging off or on. |
 
 On the panel: **click** a step to tick or untick it, **right-click** it for its waypoint,
 **hover** it for details, **drag** the title to move it, **click** the title to collapse it.
 
-## What your AI gets to see
+## Power mode: an AI agent on your PC (optional)
 
-Everything stays on your computer until you share it.
+If you use an agent that can run commands (Claude Code, Codex CLI, Cursor, Aider, ...), it can
+read your progress directly and write goals itself, with no copy and paste. It can also read the
+game's **live chat and combat logs**: loot as it drops, and what killed you.
 
-- The snapshot (`WTF/Account/<account>/SavedVariables/WowLink.lua`): your characters' level, gold,
-  location, quests, completed quest IDs, professions, gear, bags, loot, journal and notes.
-- The game's chat log (`Logs/WoWChatLog.txt`) and combat log. **The chat log has all your chat,
-  whispers included.** `brief` only uses the snapshot and the loot lines from the chat log, but an agent
-  running in this folder can read the full chat log. If you don't want that, type `/wl chatlog` to turn it off.
+1. Install [Python 3.9+](https://www.python.org/downloads/). Download `WowLink-x.y.z.zip` (the full
+   one) from Releases and extract it somewhere permanent, like `Documents\WowLink`.
+2. In that folder, run `python tools/wl.py setup`. It finds WoW, asks which version you play,
+   and links the addon into AddOns. (If you already installed the addon-only zip, it updates that
+   copy instead.)
+3. Open the folder in your agent and talk. It follows `AGENTS.md`.
+   In game, **[sync]** (`/wl sync`) reloads the UI to swap data with the agent.
+
+## What gets shared
+
+Nothing leaves your computer unless you paste it somewhere. The **[copy]** report shows
+exactly what your AI gets: your character's level, gold, location, quests, professions, gear,
+recent loot, recent events and your notes. Read it before you paste if you like.
+
+In power mode the addon also turns on the game's own chat log (`Logs/WoWChatLog.txt`), which
+holds **all your chat, whispers included**, and an agent in the WowLink folder can read it.
+Type `/wl chatlog` to turn that off (and `/wl combatlog` for the combat log).
 
 ## Is this allowed?
 
-As far as we know, yes. WowLink only uses the standard addon API that every quest helper uses,
-and the chat and combat logs are Blizzard's own `/chatlog` and `/combatlog` features
-(the same ones log-analysis sites use). Nothing automates play. Your AI's advice is still advice:
-follow the game's rules.
+As far as we know, yes. WowLink only uses the standard addon API that every quest helper uses.
+The optional logs are Blizzard's own `/chatlog` and `/combatlog` features, the same ones log-analysis
+sites use. Nothing automates play. Your AI's advice is still advice: follow the game's rules.
 
 ## For developers
 
