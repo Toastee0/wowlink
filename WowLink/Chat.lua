@@ -40,6 +40,11 @@ local function Item(d)
 	if type(d) ~= "table" then return "?" end
 	local s = ("%s #%s (%s%s, ilvl %s%s)"):format(d.name or "?", tostring(d.id), d.sub or d.type or "",
 		d.slot and (" " .. d.slot) or "", tostring(d.ilvl), d.req and d.req > 1 and (", req " .. d.req) or "")
+	-- bag/bank items only (bound is nil for equipped gear): can it go on the Auction House?
+	if d.bound == true then s = s .. " [soulbound]"
+	elseif d.bound == "some" then s = s .. " [some soulbound]"
+	elseif d.bound == false then s = s .. (d.bind == "BoE" and " [Bind on Equip, tradeable]" or " [tradeable]") end
+	if d.vendor and d.bound ~= nil then s = s .. " [vendor " .. Coins(d.vendor):gsub(" 0c$", ""):gsub("^0g ", "") .. "]" end
 	local st = Stats(d.stats)
 	if st ~= "" then s = s .. ": " .. st end
 	return s
@@ -284,8 +289,10 @@ Rules for the JSON:
 - Same for directions: don't state travel routes (zeppelins, boats, flight paths), NPC or building
   locations as fact unless you're sure for my game version. Say you're unsure, or ask me.
 - "verdicts" (optional): item ID -> one line, max 90 chars, shown in that item's tooltip. Start
-  with Upgrade:, Equip:, Keep:, Vendor: or Skip:. Judge gear against what I have equipped, my
+  with Upgrade:, Equip:, Keep:, Sell:, Vendor: or Skip:. Judge gear against what I have equipped, my
   class and my goals, and say why in the chat.
+- Items I don't need: if the report marks one tradeable (especially Bind on Equip greens and blues),
+  say Sell: and suggest the Auction House; Vendor: is for soulbound items and junk.
 - Later I'll send short "WOWLINK UPDATE" reports in this same chat; use them to check my progress.
 ]]
 WL.PROMPT = PROMPT

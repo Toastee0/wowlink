@@ -524,8 +524,18 @@ def fmt_stats(st):
 
 
 def fmt_item(x):
+    trade = ""
+    b = x.get("bound")
+    if b is True:
+        trade = ", soulbound"
+    elif b == "some":
+        trade = ", some soulbound"
+    elif b is False:
+        trade = ", Bind on Equip, tradeable" if x.get("bind") == "BoE" else ", tradeable"
+    if x.get("vendor") and b is not None:
+        trade += f", vendor {coins(x['vendor'])}"
     return (f"{x.get('name')} #{x.get('id')} [{QUALITY.get(x.get('q'), '?')} {x.get('sub') or x.get('type') or ''}"
-            f" {x.get('slot') or ''}, ilvl {x.get('ilvl')}, req {x.get('req')}]: {fmt_stats(x.get('stats'))}")
+            f" {x.get('slot') or ''}, ilvl {x.get('ilvl')}, req {x.get('req')}{trade}]: {fmt_stats(x.get('stats'))}")
 
 
 def chat_log_path():

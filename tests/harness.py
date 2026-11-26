@@ -91,10 +91,11 @@ end
 GetInventoryItemID = function(_, slot) if slot == 6 then return 4680 end end
 C_Item = {
   GetItemCount = function(id) return STATE.items[id] or 0 end,
+  IsBound = function(loc) return false end,
   GetItemInfo = function(link)
     local id = tonumber(link:match("item:(%d+)"))
     if id == 4680 then return "Cracked Leather Belt", link, 1, 8, 3, "Armor", "Leather", 1, "INVTYPE_WAIST" end
-    if id == 6087 then return "Chausses of Westfall", link, 2, 21, 16, "Armor", "Leather", 1, "INVTYPE_LEGS" end
+    if id == 6087 then return "Chausses of Westfall", link, 2, 21, 16, "Armor", "Leather", 1, "INVTYPE_LEGS", 0, 1234, 4, 2, 2 end
     if id == 2589 then return "Linen Cloth", link, 1, 5, 0, "Trade Goods", "Cloth", 20, "" end
   end,
   GetItemStats = function(link)
@@ -106,6 +107,7 @@ C_Container = {
   GetContainerNumSlots = function(bag) if bag == 0 then return 2 elseif bag == -1 then return 1 end return 0 end,
   GetContainerItemInfo = function(bag, slot)
     if slot == 1 then return { itemID = 2589, stackCount = STATE.items[2589], hyperlink = "|cffffffff|Hitem:2589::|h[Linen Cloth]|h|r" } end
+    if slot == 2 and bag == 0 then return { itemID = 6087, stackCount = 1, hyperlink = "|cff1eff00|Hitem:6087::|h[Chausses of Westfall]|h|r" } end
   end,
 }
 C_QuestLog = {
@@ -130,6 +132,7 @@ C_Map = {
   ClearUserWaypoint = function() WAYPOINT = nil end,
   CanSetUserWaypointOnMap = function() return true end,
 }
+ItemLocation = { CreateFromBagAndSlot = function(_, bag, slot) return { bag = bag, slot = slot } end }
 UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { uiMapID = m, position = { x = x, y = y } } end }
 C_SuperTrack = { SetSuperTrackedUserWaypoint = function() end }
 LoggingChat = function(on) CHATLOG = on end
@@ -271,6 +274,7 @@ def main():
     assert "You are my World of Warcraft coach" in report and "=== WOWLINK REPORT ===" in report
     assert "Chausses of Westfall #6087" in report and "Agility 5" in report and "|" not in report, report[-800:]
     assert "Classic-era rules" in report
+    assert "Chausses of Westfall #6087 (Leather LEGS, ilvl 21, req 16) [Bind on Equip, tradeable] [vendor 12s 34c]" in report, report
     assert "Bank: not seen yet" in report
     assert g.WowLinkDB.chars["Testchar-Realm"].bank is None, "bank must not be read while closed"
     g.FIRE("BANKFRAME_OPENED")
@@ -334,6 +338,7 @@ def main():
     assert "level 16" in out and "Redridge - hit 16" in out and "NEW" in out and "[>] current" in out
     out = run_wl(["loot"])
     assert "Chausses of Westfall" in out and "Agility 5" in out and "vs Legs" in out
+    assert "Bind on Equip, tradeable, vendor 12s 34c" in out, out
     out = run_wl(["status", "--full"])
     assert "## Bank (1 kinds" in out
     run_wl(["done", "12", "65", "999"])

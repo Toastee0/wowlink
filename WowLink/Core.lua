@@ -42,9 +42,11 @@ end
 
 -- Item level, slot and stats, so your AI can judge upgrades.
 local function ItemDetail(link)
-	local name, _, quality, ilvl, reqLevel, itype, sub, _, equipLoc = ItemInfo(link)
+	local name, _, quality, ilvl, reqLevel, itype, sub, _, equipLoc, _, sellPrice, _, _, bindType = ItemInfo(link)
 	local d = { id = tonumber(link:match("item:(%d+)")), name = name or LinkName(link), q = quality,
-		ilvl = ilvl, req = reqLevel, type = itype, sub = sub }
+		ilvl = ilvl, req = reqLevel, type = itype, sub = sub,
+		vendor = (sellPrice and sellPrice > 0) and sellPrice or nil, -- copper, per item
+		bind = ({ [1] = "BoP", [2] = "BoE", [3] = "BoU", [4] = "Quest" })[bindType or 0] }
 	if equipLoc and equipLoc ~= "" and equipLoc ~= "INVTYPE_NON_EQUIP_IGNORE" then
 		d.slot = equipLoc:gsub("^INVTYPE_", "")
 		local getStats = (C_Item and C_Item.GetItemStats) or GetItemStats
@@ -170,7 +172,7 @@ local function BagIDs(which)
 end
 
 local function ReadContainers(bagIDs)
-	local counts, names, order = {}, {}, {}
+	local counts, names, order, bound = {}, {}, {}, {}
 	local numSlots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
 	if not numSlots then return {} end
 	for _, bag in ipairs(bagIDs) do
@@ -186,6 +188,14 @@ local function ReadContainers(bagIDs)
 			end
 			if id then
 				if not counts[id] then order[#order + 1] = id end
+				-- soulbound or still tradeable? (decides Auction House vs. vendor)
+				if C_Item and C_Item.IsBound and ItemLocation and ItemLocation.CreateFromBagAndSlot then
+					local okB, b = pcall(C_Item.IsBound, ItemLocation:CreateFromBagAndSlot(bag, slot))
+					if okB and b ~= nil then
+						bound[id] = bound[id] or {}
+						bound[id][b and "yes" or "no"] = true
+					end
+				end
 				counts[id] = (counts[id] or 0) + (count or 1)
 				names[id] = names[id] or link
 			end
@@ -195,6 +205,7 @@ local function ReadContainers(bagIDs)
 	for _, id in ipairs(order) do
 		local d = names[id] and ItemDetail(names[id]) or { id = id }
 		d.n = counts[id]
+		if bound[id] then d.bound = bound[id].yes and (bound[id].no and "some" or true) or false end
 		if not d.slot then d.stats, d.req, d.sub = nil, nil, nil end -- keep non-gear entries small
 		out[#out + 1] = d
 	end
@@ -625,7 +636,8 @@ local function AddVerdict(tt, id)
 	local low = v:lower()
 	local r, g, b = 0.31, 0.76, 0.97
 	if low:find("^upgrade") or low:find("^equip") then r, g, b = 0.25, 1, 0.25
-	elseif low:find("^vendor") or low:find("^sell") or low:find("^skip") then r, g, b = 0.65, 0.65, 0.65 end
+	elseif low:find("^sell") then r, g, b = 1, 0.82, 0 -- Auction House: worth money
+	elseif low:find("^vendor") or low:find("^skip") then r, g, b = 0.65, 0.65, 0.65 end
 	tt:AddLine("Coach: " .. v, r, g, b, true)
 	tt:Show()
 end
