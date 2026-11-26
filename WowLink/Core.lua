@@ -315,6 +315,8 @@ function WL:SaveFlightPaths()
 		end
 	end
 	self.char.flight[cont] = { t = time(), known = known, unknown = unknown, pos = pos }
+	-- new positions may give the current step a waypoint it didn't have
+	if not (self.ttUID or self.mapPin) then self.lastWaypoint = nil end
 	self:Refresh(true)
 end
 
