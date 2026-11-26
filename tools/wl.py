@@ -446,6 +446,9 @@ def cmd_status(args):
     prof = [x for x in sk if x.get("cat") in ("Professions", "Secondary Skills")]
     if prof:
         w("\n## Professions: " + ", ".join(f"{x['name']} {x.get('rank')}/{x.get('max')}" for x in prof))
+    for t in s.get("talents") or []:
+        parts = ", ".join(f"{x.get('name')} {x.get('rank')}/{x.get('max')}" for x in t.get("list") or [])
+        w(f"Talents, {t.get('name')} {t.get('spent')}" + (f": {parts}" if parts else ""))
     eq = s.get("equipment") or []
     if eq:
         w("\n## Equipped (ilvl)")

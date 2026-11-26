@@ -455,6 +455,30 @@ function WL:SaveRecipes()
 	if not old then Print("Recorded " .. #list .. " " .. prof .. " recipes for your AI.") end
 end
 
+-- Talents (classic-style trees): tab name, points spent, and every talent with a point in it.
+local function ReadTalents()
+	if not (GetNumTalentTabs and GetNumTalents and GetTalentInfo) then return nil end
+	local out = {}
+	for tab = 1, GetNumTalentTabs() or 0 do
+		local tname
+		if GetTalentTabInfo then
+			for _, v in ipairs({ GetTalentTabInfo(tab) }) do
+				if type(v) == "string" and not v:find("[/\]") then tname = v; break end -- skip ids and icon paths
+			end
+		end
+		local t = { name = tname or ("Tree " .. tab), spent = 0, list = {} }
+		for i = 1, GetNumTalents(tab) or 0 do
+			local name, _, tier, col, rank, max = GetTalentInfo(tab, i)
+			if name and (rank or 0) > 0 then
+				t.spent = t.spent + rank
+				t.list[#t.list + 1] = { name = name, rank = rank, max = max, tier = tier, col = col }
+			end
+		end
+		out[#out + 1] = t
+	end
+	return #out > 0 and out or nil
+end
+
 local SLOT_NAMES = { "Head", "Neck", "Shoulder", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrist", "Hands",
 	"Finger1", "Finger2", "Trinket1", "Trinket2", "Back", "MainHand", "OffHand", "Ranged", "Tabard" }
 
@@ -534,6 +558,7 @@ function WL:Snapshot()
 	s.quests = safe(ReadQuestLog)
 	s.skills = safe(ReadSkills)
 	s.equipment = safe(ReadEquipment)
+	s.talents = safe(ReadTalents)
 	s.bags = safe(ReadBags)
 	s.completedQuests = safe(ReadCompleted)
 	self.char.snapshot = s

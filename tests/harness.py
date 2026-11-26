@@ -148,6 +148,11 @@ TaxiNodeName = function(i) return TAXI[i][1] end
 TaxiNodeGetType = function(i) return TAXI[i][2] end
 TaxiNodePosition = function(i) return 0.1 * i, 0.2 * i end
 GetTaxiMapID = function() return 1463 end  -- Forever's flight-map-only map
+GetNumTalentTabs = function() return 2 end
+GetTalentTabInfo = function(t) return 161 + t, ({ "Arms", "Fury" })[t], "desc", "Interface/Icons/x", 0 end
+GetNumTalents = function(t) return 2 end
+GetTalentInfo = function(t, i) if t == 1 then return ({ "Deep Wounds", "Deflection" })[i], 1, i, 1, ({ 3, 0 })[i], ({ 3, 5 })[i] end
+  return "Cruelty", 1, 1, i, 0, 5 end
 CreateVector2D = function(x, y) return { x = x, y = y } end
 Auctionator = { API = { v1 = {
   GetAuctionPriceByItemLink = function(caller, link) assert(caller == "WowLink"); if link:find("item:6087") then return 15000 end end,
@@ -302,6 +307,7 @@ def main():
     g.SlashCmdList.WOWLINK("copy")
     report = g.WowLinkTextWindow.edit.text
     assert "Other items in bank (as of" in report and "Linen Cloth x10" in report, report[-600:]
+    assert "Talents:\n- Arms 3: Deep Wounds 3/3\n- Fury 0\n" in report, report
     wl_ = g.WowLink
     assert not wl_.CheckMet(wl_, lua.table(flight="stonard"))
     g.FIRE("TAXIMAP_OPENED")
@@ -398,6 +404,7 @@ def main():
     assert "Bind on Equip, tradeable, vendor 12s 34c, AH ~1g 50s 0c seen 2d ago" in out, out
     out = run_wl(["status", "--full"])
     assert "## Bank (1 kinds" in out
+    assert "Talents, Arms 3: Deep Wounds 3/3" in out and "Talents, Fury 0" in out, out[:1500]
     assert "## Flight paths on Eastern Kingdoms" in out and "Stonard, Swamp of Sorrows" in out
     assert "## Blacksmithing recipes (2 known, skill 157/225" in out, out[-800:]
     assert "- [yellow] Green Iron Helm, can make 1: 12x Iron Bar (17), 1x Citrine (1)" in out and "Gray (no skill-ups): 1" in out

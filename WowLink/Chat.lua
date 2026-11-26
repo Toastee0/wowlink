@@ -360,6 +360,14 @@ function WL:ExportText(full)
 		if k.cat == "Professions" or k.cat == "Secondary Skills" then prof[#prof + 1] = ("%s %s/%s"):format(k.name, tostring(k.rank), tostring(k.max)) end
 	end
 	if #prof > 0 then w(""); w("Professions: " .. table.concat(prof, ", ")) end
+	if s.talents then
+		w(""); w("Talents:")
+		for _, t in ipairs(s.talents) do
+			local parts = {}
+			for _, x in ipairs(t.list or {}) do parts[#parts + 1] = ("%s %s/%s"):format(x.name, tostring(x.rank), tostring(x.max)) end
+			w(("- %s %d%s"):format(t.name or "?", t.spent or 0, #parts > 0 and (": " .. table.concat(parts, ", ")) or ""))
+		end
+	end
 	w(""); w("Equipped:")
 	for _, e in ipairs(s.equipment or {}) do w(("- %s: %s"):format(e.equipSlot or "?", Item(e))) end
 	local loot = {}
