@@ -479,6 +479,66 @@ local function ReadTalents()
 	return #out > 0 and out or nil
 end
 
+-- Modern clients (and WoW Forever) keep talents in the trait system, even when the window looks classic.
+-- Nodes are split into the class's specialization trees by horizontal position (trees sit side by side).
+local function SpellName(id)
+	if not id then return nil end
+	if C_Spell and C_Spell.GetSpellName then return C_Spell.GetSpellName(id) end
+	if GetSpellInfo then return (GetSpellInfo(id)) end
+end
+
+local function ReadTalentsTraits()
+	local CT, T = C_ClassTalents, C_Traits
+	if not (CT and CT.GetActiveConfigID and T and T.GetConfigInfo and T.GetTreeNodes and T.GetNodeInfo) then return nil end
+	local config = CT.GetActiveConfigID()
+	local ci = config and T.GetConfigInfo(config)
+	if not (ci and ci.treeIDs and ci.treeIDs[1]) then return nil end
+	local nodes, minX, maxX = {}, math.huge, -math.huge
+	for _, tree in ipairs(ci.treeIDs) do
+		for _, nodeID in ipairs(T.GetTreeNodes(tree) or {}) do
+			local n = T.GetNodeInfo(config, nodeID)
+			if n and n.ID and n.ID ~= 0 and (n.isVisible ~= false) then
+				local x = n.posX or 0
+				if x < minX then minX = x end
+				if x > maxX then maxX = x end
+				local rank = n.ranksPurchased or n.currentRank or 0
+				if rank > 0 then
+					local entry = (n.activeEntry and n.activeEntry.entryID) or (n.entryIDs and n.entryIDs[1])
+					local name
+					if entry and T.GetEntryInfo and T.GetDefinitionInfo then
+						local e = T.GetEntryInfo(config, entry)
+						local d = e and e.definitionID and T.GetDefinitionInfo(e.definitionID)
+						name = d and (d.overrideName or SpellName(d.spellID))
+					end
+					nodes[#nodes + 1] = { name = name or ("node " .. nodeID), rank = rank, max = n.maxRanks, x = x, y = n.posY,
+						sub = n.subTreeID }
+				end
+			end
+		end
+	end
+	-- tree names: the class's specializations in order (Arms, Fury, Protection for a Warrior)
+	local specs = {}
+	local SI = C_SpecializationInfo
+	local count = (GetNumSpecializations and GetNumSpecializations()) or 0
+	local getSpec = (SI and SI.GetSpecializationInfo) or GetSpecializationInfo
+	for i = 1, getSpec and count or 0 do
+		local ok, _, name = pcall(getSpec, i)
+		if ok and type(name) == "string" then specs[#specs + 1] = name end
+	end
+	local nTrees = (#specs >= 2 and #specs) or 3 -- classic-style classes have three trees
+	local out = {}
+	for i = 1, nTrees do out[i] = { name = specs[i] or ("Tree " .. i .. " (left to right)"), spent = 0, list = {} } end
+	local width = (maxX > minX) and (maxX - minX) or 1
+	table.sort(nodes, function(a, b) if a.y ~= b.y then return (a.y or 0) < (b.y or 0) end return a.x < b.x end)
+	for _, n in ipairs(nodes) do
+		local i = math.min(nTrees, math.floor((n.x - minX) / width * nTrees) + 1)
+		local t = out[i]
+		t.spent = t.spent + n.rank
+		t.list[#t.list + 1] = { name = n.name, rank = n.rank, max = n.max }
+	end
+	return out
+end
+
 -- When ReadTalents finds nothing: record which talent functions this client has, so support can be added.
 local function ProbeTalentAPI()
 	local out = { globals = {}, namespaces = {} }
@@ -605,7 +665,7 @@ function WL:Snapshot()
 	s.quests = safe(ReadQuestLog)
 	s.skills = safe(ReadSkills)
 	s.equipment = safe(ReadEquipment)
-	s.talents = safe(ReadTalents)
+	s.talents = safe(ReadTalents) or safe(ReadTalentsTraits)
 	if not s.talents then s.talentAPI = safe(ProbeTalentAPI) end
 	pcall(self.SaveGuild, self)
 	s.bags = safe(ReadBags)

@@ -447,6 +447,27 @@ def main():
     g2.GameTooltip.AddLine = lambda self, t, *a: lines2.append(t)
     g2.TOOLTIP_FN(g2.GameTooltip, lua2.table(id=4680))
     assert lines2 == ["Coach: Vendor: your new drop is better"], lines2
+    # WoW Forever: classic-looking talent window backed by the trait system
+    lua2.execute("""
+      GetNumTalentTabs, GetNumTalents, GetTalentInfo = nil, nil, nil
+      local N = { [1] = { x = 100, y = 10, r = 3, m = 3, s = 12294 }, [2] = { x = 1500, y = 10, r = 0, m = 5, s = 1 },
+                  [3] = { x = 2900, y = 20, r = 5, m = 5, s = 12298 } }
+      C_ClassTalents = { GetActiveConfigID = function() return 7 end }
+      C_Traits = {
+        GetConfigInfo = function(c) return { treeIDs = { 70 } } end,
+        GetTreeNodes = function(t) return { 1, 2, 3 } end,
+        GetNodeInfo = function(c, id) local n = N[id]; return { ID = id, posX = n.x, posY = n.y, ranksPurchased = n.r,
+          maxRanks = n.m, activeEntry = { entryID = id * 10 }, isVisible = true } end,
+        GetEntryInfo = function(c, e) return { definitionID = e + 1 } end,
+        GetDefinitionInfo = function(d) return { spellID = N[(d - 1) / 10].s } end }
+      C_Spell = { GetSpellName = function(id) return ({ [12294] = "Mortal Strike", [12298] = "Shield Specialization" })[id] end }
+      GetNumSpecializations = function() return 3 end
+      C_SpecializationInfo = { GetSpecializationInfo = function(i) return 70 + i, ({ "Arms", "Fury", "Protection" })[i] end }
+    """)
+    g2.WowLink.Snapshot(g2.WowLink)
+    tal = g2.WowLinkDB.chars["Testchar-Realm"].snapshot.talents
+    assert tal and tal[1].name == "Arms" and tal[1].spent == 3 and tal[1].list[1].name == "Mortal Strike", "trait talents"
+    assert tal[2].spent == 0 and tal[3].name == "Protection" and tal[3].list[1].name == "Shield Specialization" and tal[3].list[1].max == 5
     print("\nALL OK")
 
 
