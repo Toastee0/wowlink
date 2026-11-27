@@ -214,7 +214,7 @@ def main():
     sv_dir = tmp / "WTF" / "Account" / "TEST" / "SavedVariables"
     sv_dir.mkdir(parents=True)
     (tmp / "Logs").mkdir()
-    env = dict(os.environ, WOWLINK_WOW_DIR=str(tmp), PYTHONIOENCODING="utf-8")
+    env = dict(os.environ, WOWLINK_WOW_DIR=str(tmp), WOWLINK_SNAPSHOTS=str(tmp / "snapshots"), PYTHONIOENCODING="utf-8")
 
     # Goal written through wl.py (with a temp project copy so real goals/ stays untouched)
     proj = tmp / "proj"
@@ -430,6 +430,22 @@ def main():
     out = run_wl(["brief"])
     assert "You are my World of Warcraft coach" in out and "Chausses of Westfall" in out
     run_wl(["chat", "5"])
+
+    # `changes`: a second sync with more money and a new bag item, diffed against the first
+    out = subprocess.run([sys.executable, str(proj / "tools" / "wl.py"), "changes"], capture_output=True,
+                         text=True, encoding="utf-8", env=env)
+    assert out.returncode != 0 and "only one snapshot" in out.stderr, out.stderr
+    lua.execute("""
+      local s = WowLinkDB.chars["Testchar-Realm"].snapshot
+      s.t = s.t + 600; s.money = (s.money or 0) + 12345
+      table.insert(s.bags, { id = 4306, name = "Silk Cloth", n = 7 })
+    """)
+    (sv_dir / "WowLink.lua").write_text(g.SERIALIZE("WowLinkDB", g.WowLinkDB), encoding="utf-8")
+    out = run_wl(["changes"])
+    assert "Money +1g 23s 45c" in out, out
+    assert "Gained: Silk Cloth +7 (#4306)" in out, out
+    out = run_wl(["changes"])
+    assert "no new sync since you last asked" in out and "Silk Cloth +7" in out, out
 
     # --- session 2: reload picks the same goal up without resetting progress
     lua2 = lupa.LuaRuntime(unpack_returned_tuples=True)

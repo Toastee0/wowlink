@@ -4,6 +4,8 @@
   python tools/wl.py brief [CHAR]                       a paste-ready prompt + status for chat-only AIs
   python tools/wl.py prompt                             just the coaching prompt (same as PROMPT.md)
   python tools/wl.py status [CHAR] [--full] [--json]   what the character is up to
+  python tools/wl.py changes [CHAR] [--since 3h|--prev] [--keep]   what changed: items, gear, money, skills, quests
+                                                        (default: since you last asked; history in snapshots/)
   python tools/wl.py chars                              characters with snapshots
   python tools/wl.py done QUESTID... [--char CHAR]      has the character turned these in?
   python tools/wl.py goal CHAR FILE|- [--keep-id]       set the current goal (validates, writes Inbox.lua);
@@ -35,6 +37,8 @@ ADDON = ROOT / "WowLink"
 GOALS = ROOT / "goals"
 VERDICTS = ROOT / "verdicts"
 CONFIG = ROOT / "wowlink.json"
+SNAPS = Path(os.environ.get("WOWLINK_SNAPSHOTS") or ROOT / "snapshots")  # per-character history of snapshots, for `changes`
+SNAPS_KEEP = 200
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -311,6 +315,7 @@ def load_db():
         db["chars"] = {}
     # early addon versions keyed "Name-" when the client gave no realm
     db["chars"] = {k.rstrip("-"): v for k, v in (db.get("chars") or {}).items()}
+    record_history(db)
     return db, p
 
 
@@ -360,6 +365,56 @@ def coins(c):
 def load_goal(key):
     p = GOALS / f"{key}.json"
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+
+# ---------------------------------------------------------------- snapshot history (for `changes`)
+
+def inv_record(c):
+    """The parts of a character worth diffing, in a compact form."""
+    s = c.get("snapshot") or {}
+    bank = c.get("bank") or {}
+    def items(lst):
+        out = {}
+        for b in lst or []:
+            if b.get("id") is None:
+                continue
+            k = str(b["id"])
+            out.setdefault(k, {"name": b.get("name"), "n": 0})["n"] += int(b.get("n") or 1)
+        return out
+    return {
+        "t": s.get("t"), "level": s.get("level"), "xp": s.get("xp"), "xpMax": s.get("xpMax"),
+        "money": s.get("money"), "zone": s.get("zone"),
+        "bags": items(s.get("bags")),
+        "bankT": bank.get("t"), "bank": items(bank.get("items")) if bank.get("items") is not None else None,
+        "equipment": {e.get("equipSlot"): {"id": e.get("id"), "name": e.get("name")}
+                      for e in s.get("equipment") or [] if e.get("equipSlot")},
+        "skills": {x.get("name"): x.get("rank") for x in s.get("skills") or [] if x.get("name")},
+        "quests": {str(q.get("id")): q.get("title") for q in s.get("quests") or [] if q.get("id")},
+        "completed": len(s.get("completedQuests") or []),
+    }
+
+
+def record_history(db):
+    """Store each new snapshot per character, so `changes` can diff any two of them. Never fails a command."""
+    try:
+        for key, c in ((db or {}).get("chars") or {}).items():
+            if not isinstance(c, dict) or not (c.get("snapshot") or {}).get("t"):
+                continue
+            rec = inv_record(c)
+            if not rec["equipment"] and not rec["bags"]:
+                continue  # a blank logout snapshot: nothing to compare
+            d = SNAPS / key
+            p = d / f"{rec['t']}.json"
+            if p.exists():
+                continue
+            d.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8", newline="") as fh:
+                json.dump(rec, fh)
+            old = sorted(d.glob("[0-9]*.json"), key=lambda q: int(q.stem))
+            for q in old[:-SNAPS_KEEP]:
+                q.unlink()
+    except OSError:
+        pass
 
 
 def cmd_status(args):
@@ -629,6 +684,133 @@ def cmd_loot(args):
             print(f"\n## Since that snapshot (live chat log, names only; /wl sync for stats)")
             for l in live[-30:]:
                 print("- " + l)
+
+
+def parse_span(s):
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)([mhd])", s or "")
+    if not m:
+        die(f"--since wants a span like 30m, 3h or 2d, not {s!r}")
+    return float(m.group(1)) * {"m": 60, "h": 3600, "d": 86400}[m.group(2)]
+
+
+def cmd_changes(args):
+    """changes [CHAR] [--since 3h|--prev] [--keep]: what changed between two snapshots (default: since you last asked)."""
+    since = None
+    if "--since" in args:
+        i = args.index("--since")
+        since = parse_span(args[i + 1] if i + 1 < len(args) else "")
+        args = args[:i] + args[i + 2:]
+    prev, keep = "--prev" in args, "--keep" in args
+    args = [a for a in args if not a.startswith("--")]
+    db, _ = load_db()
+    key = resolve_char(args[0] if args else None, db)
+    c = db["chars"].get(key) or {}
+    d = SNAPS / key
+    recs = sorted(d.glob("[0-9]*.json"), key=lambda q: int(q.stem)) if d.exists() else []
+    if not recs:
+        die(f"no snapshot history for {key} yet: /wl sync, run any wl.py command, then sync again later")
+    load = lambda q: json.loads(q.read_text(encoding="utf-8"))
+    cur = load(recs[-1])
+    older = [q for q in recs[:-1]]
+    marker = d / "seen.json"
+    base, repeat = None, False
+    if since is not None:
+        cut = time.time() - since
+        cand = [q for q in older if int(q.stem) <= cut]
+        base = cand[-1] if cand else (older[0] if older else None)
+    elif not prev and marker.exists():
+        seen = json.loads(marker.read_text(encoding="utf-8")).get("t")
+        repeat = seen == cur["t"]
+        cand = [q for q in older if int(q.stem) <= (seen or 0) and int(q.stem) != cur["t"]]
+        base = cand[-1] if cand else None
+    if base is None and not since and older:
+        base = older[-1]
+    if base is None:
+        die(f"only one snapshot of {key} so far ({ago(cur['t'])}); /wl sync again after playing a bit")
+    old = load(base)
+    n_between = sum(1 for q in recs if int(base.stem) < int(q.stem) <= cur["t"])
+    print(f"# Changes for {key}: snapshot {ago(old['t'])} -> {ago(cur['t'])} ({n_between} sync(s) apart)")
+    if repeat:
+        print("(no new sync since you last asked: this is the same comparison again; /wl sync for fresh data)")
+
+    lines = []
+    if old.get("level") != cur.get("level"):
+        lines.append(f"Level {old.get('level')} -> {cur.get('level')}")
+    elif cur.get("xpMax"):
+        dx = (cur.get("xp") or 0) - (old.get("xp") or 0)
+        if dx:
+            lines.append(f"XP {dx:+,} ({cur.get('xp')}/{cur.get('xpMax')})")
+    dm = (cur.get("money") or 0) - (old.get("money") or 0)
+    if dm:
+        lines.append(f"Money {'+' if dm > 0 else '-'}{coins(abs(dm))} (now {coins(cur.get('money'))})")
+    if old.get("zone") != cur.get("zone"):
+        lines.append(f"Zone {old.get('zone')} -> {cur.get('zone')}")
+    for l in lines:
+        print(l)
+
+    # Items: net change across bags + bank, then what only moved between them.
+    bank_seen = cur.get("bank") is not None and old.get("bank") is not None
+    def total(r):
+        t = {}
+        for src in (r.get("bags") or {}, (r.get("bank") or {}) if bank_seen else {}):
+            for k, v in src.items():
+                t.setdefault(k, {"name": v["name"], "n": 0})["n"] += v["n"]
+        return t
+    a, b = total(old), total(cur)
+    names = {k: (b.get(k) or a.get(k))["name"] for k in set(a) | set(b)}
+    delta = {k: (b.get(k, {}).get("n", 0) - a.get(k, {}).get("n", 0)) for k in names}
+    fmt = lambda ks: "; ".join(f"{names[k]} {delta[k]:+d} (#{k})" for k in sorted(ks, key=lambda k: names[k] or ""))
+    gained = [k for k, v in delta.items() if v > 0]
+    lost = [k for k, v in delta.items() if v < 0]
+    scope = "bags + bank" if bank_seen else "bags only (no bank record to compare)"
+    print(f"\n## Items, {scope}")
+    if old.get("bankT") == cur.get("bankT") and bank_seen:
+        print(f"(bank last opened {ago(cur.get('bankT'))}: bank moves since then show up as bag changes)")
+    print("Gained: " + (fmt(gained) or "nothing"))
+    print("Gone (sold, used, mailed, destroyed): " + (fmt(lost) or "nothing"))
+    if bank_seen and old.get("bankT") != cur.get("bankT"):
+        ob, cb = old.get("bank") or {}, cur.get("bank") or {}
+        moved = []
+        for k in set(ob) | set(cb):
+            dn = cb.get(k, {}).get("n", 0) - ob.get(k, {}).get("n", 0)
+            if dn and delta.get(k, 0) != dn:
+                moved.append(f"{names[k]} {dn:+d}")
+        if moved:
+            print("Bank (+ deposited, - withdrawn): " + "; ".join(sorted(moved)))
+
+    eo, ec = old.get("equipment") or {}, cur.get("equipment") or {}
+    eq = [f"{s}: {(eo.get(s) or {}).get('name') or '(empty)'} -> {(ec.get(s) or {}).get('name') or '(empty)'}"
+          for s in sorted(set(eo) | set(ec)) if (eo.get(s) or {}).get("id") != (ec.get(s) or {}).get("id")]
+    if eq:
+        print("\n## Equipment\n" + "\n".join("- " + x for x in eq))
+
+    so, sc = old.get("skills") or {}, cur.get("skills") or {}
+    sk = [f"{n} {so.get(n)} -> {sc.get(n)}" for n in sorted(sc) if so.get(n) != sc.get(n)]
+    if sk:
+        print("\n## Skills\n" + ", ".join(sk))
+
+    qo, qc = old.get("quests") or {}, cur.get("quests") or {}
+    done = set((c.get("snapshot") or {}).get("completedQuests") or [])
+    new_q = [f"{qc[i]} (#{i})" for i in qc if i not in qo]
+    left = [f"{qo[i]} (#{i})" + (" turned in" if int(i) in done else " abandoned or failed")
+            for i in qo if i not in qc]
+    if new_q or left:
+        print("\n## Quests")
+        if new_q:
+            print("Accepted: " + "; ".join(new_q))
+        if left:
+            print("Left the log: " + "; ".join(left))
+
+    p = chat_log_path()
+    if p:
+        live = [l for l in tail_lines(p) if "You receive" in l or "You create" in l]
+        live = [l for l in live if (chat_time(l) or 0) > (cur.get("t") or 0)]
+        if live:
+            print(f"\n## After the newest snapshot (live chat log; /wl sync to fold these in)")
+            for l in live[-30:]:
+                print("- " + l)
+    if not keep and since is None and not prev:
+        marker.write_text(json.dumps({"t": cur["t"]}), encoding="utf-8")
 
 
 def cmd_chat(args):
@@ -1074,7 +1256,7 @@ def cmd_guild(args):
         print(f"- {m.get('name')}: {m.get('level')} {m.get('class')}, {m.get('rank')}, {seen}{where}{note}")
 
 
-COMMANDS = {"status": cmd_status, "chars": cmd_chars, "done": cmd_done, "goal": cmd_goal, "show": cmd_show,
+COMMANDS = {"changes": cmd_changes, "status": cmd_status, "chars": cmd_chars, "done": cmd_done, "goal": cmd_goal, "show": cmd_show,
             "clear": cmd_clear, "render": lambda a: print(f"Inbox.lua: {render_inbox()} goal(s)"),
             "check": cmd_check, "setup": cmd_setup, "install": cmd_setup, "loot": cmd_loot, "chat": cmd_chat,
             "combat": cmd_combat, "verdict": cmd_verdict, "brief": cmd_brief, "guild": cmd_guild, "talents": cmd_talents,

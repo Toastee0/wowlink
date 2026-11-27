@@ -29,6 +29,7 @@ in game like a quest in the objective tracker. You are a coach, not a bot.
 | Command | Use |
 |---|---|
 | `status [CHAR] [--full]` | Start here. Level, location, goal progress, player notes (NEW = since your last goal), journal, quest log, gear. `--full` adds bags and all skills. |
+| `changes [CHAR] [--since 3h\|--prev] [--keep]` | What changed between syncs: items gained and gone (bags + bank), money, XP, gear swaps, skills, quests accepted or turned in, plus live chat-log loot since. By default it compares with the last time you asked. Use it when the player asks "what changed". |
 | `loot [CHAR] [--all]` | Recent drops with ilvl, slot and stats next to the equipped item in that slot, unequipped gear in bags, and live chat-log loot since the snapshot. |
 | `combat [MIN] [CHAR]` | Killing blows, damage taken, and deaths with the last hits before each. |
 | `chat [N] [--grep RE]` | Tail of the chat log. |
