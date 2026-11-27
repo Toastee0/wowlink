@@ -472,6 +472,11 @@ def main():
     lua2.execute("C_Traits.GetTraitDescription = function(e, r) return '|cffffffffIncreases|r block\\nchance by 1%.' end")
     g2.WowLink.Snapshot(g2.WowLink)
     assert g2.WowLinkDB.chars["Testchar-Realm"].snapshot.talents[3].list[1].desc == "Increases block chance by 1%.", "talent tooltip text"
+    # a blank logout (no gear, 0 XP to level) must not replace a good snapshot
+    good_t = g2.WowLinkDB.chars["Testchar-Realm"].snapshot.t
+    lua2.execute("_xpmax, _invlink = UnitXPMax, GetInventoryItemLink; UnitXPMax = function() return 0 end; GetInventoryItemLink = function() return nil end; time = function() return 1999999999 end")
+    g2.WowLink.Snapshot(g2.WowLink)
+    assert g2.WowLinkDB.chars["Testchar-Realm"].snapshot.t == good_t, "blank logout kept the last good snapshot"
     print("\nALL OK")
 
 

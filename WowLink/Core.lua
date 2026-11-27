@@ -689,6 +689,11 @@ function WL:Snapshot()
 	pcall(self.SaveGuild, self)
 	s.bags = safe(ReadBags)
 	s.completedQuests = safe(ReadCompleted)
+	-- On some logouts (disconnects, quitting mid-load) the client answers with
+	-- blanks: no gear, 0 XP to level, 0 money. Keep the last good snapshot then.
+	local old = self.char.snapshot
+	local empty = (not s.equipment or next(s.equipment) == nil) and (s.xpMax or 0) == 0
+	if empty and old and old.equipment and next(old.equipment) ~= nil then return end
 	self.char.snapshot = s
 end
 
